@@ -18,39 +18,71 @@ pub trait ConfigModule {
     #[only_owner]
     #[endpoint(addKnownTokens)]
     fn add_known_tokens(&self, known_tokens: MultiValueEncoded<AddKnownTokenType<Self::Api>>) {
+        let mut all_tokens_vec = self.all_tokens().get();
         let known_tokens_mapper = self.known_tokens();
         for entry in known_tokens {
             let (token, sc_address, min_amount) = entry.into_tuple();
             require!(token.is_valid_esdt_identifier(), "Invalid token ID");
 
             if !known_tokens_mapper.contains(&token) {
-                known_tokens_mapper.add(&token);
-            }
+                require!(
+                    self.blockchain().is_smart_contract(&sc_address),
+                    "Invalid SC address"
+                );
 
-            self.known_contracts(token).set((sc_address, min_amount));
+                known_tokens_mapper.add(&token);
+                all_tokens_vec.push(token.clone());
+                self.pair_contract(&token).set(sc_address);
+                self.token_threshold(&token).set(min_amount);
+            }
         }
     }
 
     #[only_owner]
     #[endpoint(removeKnownTokens)]
     fn remove_known_tokens(&self, tokens: MultiValueEncoded<TokenIdentifier>) {
+        let mut all_tokens_vec = self.all_tokens().get();
         let known_tokens_mapper = self.known_tokens();
         for token in tokens {
             if known_tokens_mapper.contains(&token) {
                 known_tokens_mapper.remove(&token);
-                self.known_contracts(token).clear();
+
+                unsafe {
+                    let index = all_tokens_vec.find(&token).unwrap_unchecked();
+                    all_tokens_vec.remove(index);
+                }
+
+                self.pair_contract(&token).clear();
+                self.token_threshold(&token).clear();
             }
         }
+        self.all_tokens().set(&all_tokens_vec);
     }
 
-    #[view(getAllKnownContracts)]
-    #[storage_mapper("known_contracts")]
-    fn known_contracts(&self, token_id: TokenIdentifier) -> SingleValueMapper<(ManagedAddress, BigUint)>;
 
-    #[storage_mapper("known_tokens")]
+    #[view(getAllTokens)]
+    fn get_all_tokens(&self) -> MultiValueEncoded<TokenIdentifier> {
+        self.all_tokens().get().into()
+    }
+
+    #[storage_mapper("pair_contract")]
+    fn pair_contract(&self, token_id: &TokenIdentifier) -> SingleValueMapper<ManagedAddress>;
+
+    #[view(getTokenThreshold)]
+    #[storage_mapper("token_threshold")]
+    fn token_threshold(&self, token_id: &TokenIdentifier) -> SingleValueMapper<BigUint>;
+
+    #[storage_mapper("knownTokens")]
     fn known_tokens(&self) -> WhitelistMapper<Self::Api, TokenIdentifier>;
+
+    #[storage_mapper("allTokens")]
+    fn all_tokens(&self) -> SingleValueMapper<ManagedVec<TokenIdentifier>>;
 
     #[view(getProtocolFeePercent)]
     #[storage_mapper("protocol_fee_percent")]
     fn protocol_fee_percent(&self) -> SingleValueMapper<u64>;
+
+    #[view(getWrappedTokenId)]
+    #[storage_mapper("wrappedTokenId")]
+    fn wrapped_token(&self) -> NonFungibleTokenMapper<Self::Api>;
 }

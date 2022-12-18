@@ -5,6 +5,8 @@ elrond_wasm::imports!();
 pub mod config;
 pub mod proxy;
 
+const MAX_PERCENTAGE: u64 = 100_000;
+
 /// An empty contract. To be used as a template when starting a new contract from scratch.
 #[elrond_wasm::contract]
 pub trait EmptyContract:
@@ -42,7 +44,10 @@ pub trait EmptyContract:
             }
 
             let pair = self.pair_contract(&p.token_identifier).get();
-            let value = self.get_amount_out(pair, p.token_identifier, p.amount);
+            let mut value = self.get_amount_out(pair, p.token_identifier, p.amount);
+
+            let fee_amount = self.get_fee_from_input(&value);
+            value -= &fee_amount;
             total_amount += &value;
         }
 
@@ -68,6 +73,10 @@ pub trait EmptyContract:
                 self.swap_tokens_fixed_input(pair, token, balance, wrapped_egld.clone(), value);
             }
         }
+    }
+
+    fn get_fee_from_input(&self, amount_in: &BigUint) -> BigUint {
+        amount_in * self.protocol_fee_percent().get() / MAX_PERCENTAGE
     }
 
 }

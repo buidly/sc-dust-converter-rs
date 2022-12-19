@@ -5,20 +5,24 @@
 ////////////////////////////////////////////////////
 
 // Init:                                 1
-// Endpoints:                            5
+// Endpoints:                            9
 // Async Callback (empty):               1
-// Total number of exported functions:   7
+// Total number of exported functions:  11
 
 #![no_std]
 
 elrond_wasm_node::wasm_endpoints! {
     dust_converter
     (
+        swapDustTokens
+        sellDustTokens
         setFeePercentage
         addKnownTokens
         removeKnownTokens
-        getAllKnownContracts
+        getAllTokens
+        getTokenThreshold
         getProtocolFeePercent
+        getWrappedTokenId
     )
 }
 

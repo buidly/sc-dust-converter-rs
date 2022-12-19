@@ -70,9 +70,12 @@ pub trait EmptyContract:
         let wrapped_egld = self.wrapped_token().get();
         let all_tokens = self.all_tokens().get();
         for token in &all_tokens {
-
             let pair = self.pair_contract(&token).get();
             let balance = self.blockchain().get_sc_balance(&EgldOrEsdtTokenIdentifier::esdt(token.clone()), 0);
+            if balance == BigUint::zero() {
+                continue;
+            }
+
             let value = self.get_amount_out(pair.clone(), token.clone(), balance.clone());
 
             let threshold = self.token_threshold(&token).get();

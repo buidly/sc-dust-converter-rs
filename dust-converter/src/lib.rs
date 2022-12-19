@@ -1,13 +1,12 @@
 #![no_std]
 
+use crate::config::MAX_FEE_PERCENTAGE;
+
 elrond_wasm::imports!();
 
 pub mod config;
 pub mod proxy;
 
-const MAX_PERCENTAGE: u64 = 100_000;
-
-/// An empty contract. To be used as a template when starting a new contract from scratch.
 #[elrond_wasm::contract]
 pub trait EmptyContract:
     config::ConfigModule +
@@ -15,17 +14,24 @@ pub trait EmptyContract:
 {
     
     #[init]
-    fn init(&self, protocol_fee_percent: u64, wrapped_token: TokenIdentifier) {
+    fn init(&self, protocol_fee_percent: u64, slippage_percent: u64, wrapped_token: TokenIdentifier) {
+        require!(
+            protocol_fee_percent < MAX_FEE_PERCENTAGE,
+            "Invalid protocol fee value"
+        );
+        self.protocol_fee_percent().set(protocol_fee_percent);
+
+        require!(
+            slippage_percent < MAX_FEE_PERCENTAGE,
+            "Invalid slippage percent value"
+        );
+        self.slippage_percent().set(slippage_percent);
+
         require!(
             wrapped_token.is_valid_esdt_identifier(),
             "Not a valid esdt id"
         );
-        require!(
-            protocol_fee_percent < 50_000,
-            "Invalid protocol fee value"
-        );
-        self.wrapped_token().set_token_id(wrapped_token);
-        self.protocol_fee_percent().set(protocol_fee_percent);
+        self.wrapped_token().set_if_empty(wrapped_token);
     }
 
     #[payable("*")]
@@ -33,7 +39,7 @@ pub trait EmptyContract:
     fn swap_dust_token(&self) {
         let payments = self.call_value().all_esdt_transfers();
         let known_tokens_mapper = self.known_tokens();
-        let wrapped_egld = self.wrapped_token().get_token_id();
+        let wrapped_egld = self.wrapped_token().get();
 
         let mut total_amount = BigUint::zero();
         let mut refund_payments = ManagedVec::new();
@@ -56,11 +62,12 @@ pub trait EmptyContract:
         if !refund_payments.is_empty() {
             self.send().direct_multi(&caller, &refund_payments);
         }
+        self.wrapped_token_amount().update(|x| *x -= total_amount);
     }
 
     #[endpoint(sellDustTokens)]
     fn sell_dust_tokens(&self) {
-        let wrapped_egld = self.wrapped_token().get_token_id();
+        let wrapped_egld = self.wrapped_token().get();
         let all_tokens = self.all_tokens().get();
         for token in &all_tokens {
 
@@ -70,13 +77,26 @@ pub trait EmptyContract:
 
             let threshold = self.token_threshold(&token).get();
             if &value > &threshold {
-                self.swap_tokens_fixed_input(pair, token, balance, wrapped_egld.clone(), value);
+                let amount_out_min = self.get_amount_out_min(&value);
+                self.swap_tokens_fixed_input(pair, token, balance, wrapped_egld.clone(), amount_out_min);
             }
         }
     }
 
+    #[inline]
     fn get_fee_from_input(&self, amount_in: &BigUint) -> BigUint {
-        amount_in * self.protocol_fee_percent().get() / MAX_PERCENTAGE
+        amount_in * self.protocol_fee_percent().get() / MAX_FEE_PERCENTAGE
+    }
+
+    #[inline]
+    fn get_amount_out_min(&self, amount_in: &BigUint) -> BigUint {
+        require!(!self.slippage_percent().is_empty(), "Slippage not set");
+        let slippage = self.slippage_percent().get();
+        let slippage_amount = amount_in * &BigUint::from(slippage) / MAX_FEE_PERCENTAGE;
+
+        let amount_out_min = amount_in - &slippage_amount;
+
+        amount_out_min
     }
 
 }

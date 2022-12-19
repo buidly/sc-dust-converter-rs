@@ -8,11 +8,29 @@ pub const MAX_FEE_PERCENTAGE: u64 = 10_000u64;
 pub trait ConfigModule {
 
     #[only_owner]
+    #[payable("*")]
+    #[endpoint(topUp)]
+    fn top_up(&self) {
+        let (token_id, amount) = self.call_value().single_fungible_esdt();
+        require!(token_id == self.wrapped_token().get(), "Invalid token");
+
+        self.wrapped_token_amount().update(|x| *x += amount);
+    }
+
+    #[only_owner]
     #[endpoint(setFeePercentage)]
     fn set_fee_percentage(&self, protocol_fee: u64) {
         require!(protocol_fee < MAX_FEE_PERCENTAGE, "Fee percent invalid");
 
         self.protocol_fee_percent().set(protocol_fee);
+    }
+
+    #[only_owner]
+    #[endpoint(setSlippagePercentage)]
+    fn set_slippage_percentage(&self, slippage: u64) {
+        require!(slippage < MAX_FEE_PERCENTAGE, "Slippage percent invalid");
+
+        self.slippage_percent().set(slippage);
     }
 
     #[only_owner]
@@ -36,6 +54,7 @@ pub trait ConfigModule {
                 self.token_threshold(&token).set(min_amount);
             }
         }
+        self.all_tokens().set(all_tokens_vec);
     }
 
     #[only_owner]
@@ -82,7 +101,15 @@ pub trait ConfigModule {
     #[storage_mapper("protocol_fee_percent")]
     fn protocol_fee_percent(&self) -> SingleValueMapper<u64>;
 
+    #[view(getSlippagePercent)]
+    #[storage_mapper("slippage_percent")]
+    fn slippage_percent(&self) -> SingleValueMapper<u64>;
+
     #[view(getWrappedTokenId)]
     #[storage_mapper("wrappedTokenId")]
-    fn wrapped_token(&self) -> NonFungibleTokenMapper<Self::Api>;
+    fn wrapped_token(&self) -> SingleValueMapper<TokenIdentifier>;
+
+    #[view(getWrappedTokenAmount)]
+    #[storage_mapper("wrapped_token_amount")]
+    fn wrapped_token_amount(&self) -> SingleValueMapper<BigUint>;
 }

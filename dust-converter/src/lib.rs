@@ -16,7 +16,7 @@ pub trait DustConverter:
     + permissions_module::PermissionsModule
     + pausable::PausableModule 
 {
-    
+
     #[init]
     fn init(&self, protocol_fee_percent: u64, slippage_percent: u64, wrapped_token: TokenIdentifier) {
         require!(
@@ -93,7 +93,6 @@ pub trait DustConverter:
             }
 
             let value = self.get_amount_out(pair.clone(), token.clone(), balance.clone());
-
             let threshold = self.token_threshold(&token).get();
             if &value > &threshold {
                 let amount_out_min = self.get_amount_out_min(&value);

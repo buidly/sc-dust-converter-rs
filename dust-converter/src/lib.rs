@@ -8,7 +8,7 @@ pub mod config;
 pub mod proxy;
 
 #[elrond_wasm::contract]
-pub trait EmptyContract:
+pub trait DustConverter:
     config::ConfigModule +
     proxy::ProxyModule 
 {
@@ -32,6 +32,7 @@ pub trait EmptyContract:
             "Not a valid esdt id"
         );
         self.wrapped_token().set_if_empty(wrapped_token);
+        self.collected_fee_amount().set_if_empty(BigUint::zero());
     }
 
     #[payable("*")]
@@ -50,19 +51,21 @@ pub trait EmptyContract:
             }
 
             let pair = self.pair_contract(&p.token_identifier).get();
-            let mut value = self.get_amount_out(pair, p.token_identifier, p.amount);
+            let value = self.get_amount_out(pair, p.token_identifier, p.amount);
 
-            let fee_amount = self.get_fee_from_input(&value);
-            value -= &fee_amount;
             total_amount += &value;
         }
+
+        let fee_amount = self.get_fee_from_input(&total_amount);
+        total_amount -= &fee_amount;
 
         let caller = self.blockchain().get_caller();
         self.send().direct_esdt(&caller, &wrapped_egld, 0, &total_amount);
         if !refund_payments.is_empty() {
             self.send().direct_multi(&caller, &refund_payments);
         }
-        self.wrapped_token_amount().update(|x| *x -= total_amount);
+
+        self.collected_fee_amount().update(|x| *x += fee_amount);
     }
 
     #[endpoint(sellDustTokens)]

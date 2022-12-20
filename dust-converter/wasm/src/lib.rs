@@ -17,6 +17,7 @@ elrond_wasm_node::wasm_endpoints! {
         swapDustTokens
         sellDustTokens
         topUp
+        extractFees
         setFeePercentage
         setSlippagePercentage
         addKnownTokens
@@ -26,7 +27,6 @@ elrond_wasm_node::wasm_endpoints! {
         getProtocolFeePercent
         getSlippagePercent
         getWrappedTokenId
-        getWrappedTokenAmount
     )
 }
 

@@ -5,3 +5,6 @@
 **/wallets/**
 **/erdpy.data-storage.json
 **/*.interaction.json
+
+# Target
+/target

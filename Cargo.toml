@@ -1,0 +1,8 @@
+[workspace]
+
+members = [
+    "dust-converter",
+    "dust-converter/meta",
+    "pair-mock",
+    "pair-mock/meta"
+]

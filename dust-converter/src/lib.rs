@@ -10,9 +10,9 @@ pub mod proxy;
 #[elrond_wasm::contract]
 pub trait DustConverter:
     config::ConfigModule +
-    proxy::ProxyModule 
+    proxy::ProxyModule
 {
-    
+
     #[init]
     fn init(&self, protocol_fee_percent: u64, slippage_percent: u64, wrapped_token: TokenIdentifier) {
         require!(
@@ -37,7 +37,7 @@ pub trait DustConverter:
 
     #[payable("*")]
     #[endpoint(swapDustTokens)]
-    fn swap_dust_token(&self) {
+    fn swap_dust_tokens(&self) {
         let payments = self.call_value().all_esdt_transfers();
         let known_tokens_mapper = self.known_tokens();
         let wrapped_egld = self.wrapped_token().get();
@@ -80,7 +80,6 @@ pub trait DustConverter:
             }
 
             let value = self.get_amount_out(pair.clone(), token.clone(), balance.clone());
-
             let threshold = self.token_threshold(&token).get();
             if &value > &threshold {
                 let amount_out_min = self.get_amount_out_min(&value);

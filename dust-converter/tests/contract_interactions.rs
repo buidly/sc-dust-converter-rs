@@ -57,6 +57,7 @@ where
             pair_builder,
             "mocked wasm"
         );
+        b_wrapper.set_esdt_balance(&pair_wrapper.address_ref(), wrapped_token, &initial_sc_balance);
 
         b_wrapper
             .execute_tx(&owner, &contract_wrapper, &rust_zero, |sc| {
@@ -102,9 +103,9 @@ where
             .assert_ok();
     }
 
-    pub fn swap_dust_token(&mut self, payments: &[TxTokenTransfer], expected_err: Option<&str>) {
+    pub fn swap_dust_token(&mut self, payments: &[TxTokenTransfer], caller: &Address, expected_err: Option<&str>) {
         let tx = self.b_wrapper
-            .execute_esdt_multi_transfer(&self.owner, &self.c_wrapper, &payments, |sc|{
+            .execute_esdt_multi_transfer(&caller, &self.c_wrapper, &payments, |sc|{
                 sc.swap_dust_tokens();
             });
 
@@ -114,6 +115,14 @@ where
         }
 
         tx.assert_ok()
+    }
+
+    pub fn sell_dust_token(&mut self) {
+        self.b_wrapper
+            .execute_tx(&self.owner, &self.c_wrapper, &rust_biguint!(0u64), |sc| {
+                sc.sell_dust_tokens();
+            })
+            .assert_ok();
     }
 }
 

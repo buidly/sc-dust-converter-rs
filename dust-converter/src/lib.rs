@@ -1,6 +1,6 @@
 #![no_std]
 
-use crate::config::MAX_FEE_PERCENTAGE;
+use config::{MAX_PERCENTAGE, MAX_FEE_PERCENTAGE};
 
 elrond_wasm::imports!();
 
@@ -22,7 +22,7 @@ pub trait DustConverter:
         self.protocol_fee_percent().set(protocol_fee_percent);
 
         require!(
-            slippage_percent < MAX_FEE_PERCENTAGE,
+            slippage_percent < MAX_PERCENTAGE,
             "Invalid slippage percent value"
         );
         self.slippage_percent().set(slippage_percent);
@@ -90,16 +90,15 @@ pub trait DustConverter:
 
     #[inline]
     fn get_fee_from_input(&self, amount_in: &BigUint) -> BigUint {
-        amount_in * self.protocol_fee_percent().get() / MAX_FEE_PERCENTAGE
+        amount_in * self.protocol_fee_percent().get() / MAX_PERCENTAGE
     }
 
     #[inline]
     fn get_amount_out_min(&self, amount_in: &BigUint) -> BigUint {
         require!(!self.slippage_percent().is_empty(), "Slippage not set");
         let slippage = self.slippage_percent().get();
-        let slippage_amount = amount_in * &BigUint::from(slippage) / MAX_FEE_PERCENTAGE;
-
-        let amount_out_min = amount_in - &slippage_amount;
+        let slippage_amount = amount_in * slippage / MAX_PERCENTAGE;
+        let amount_out_min = amount_in.sub(&slippage_amount);
 
         amount_out_min
     }

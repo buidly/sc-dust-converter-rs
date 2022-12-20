@@ -6,11 +6,15 @@ elrond_wasm::imports!();
 
 pub mod config;
 pub mod proxy;
+use pausable::State;
+use permissions_module::Permissions;
 
 #[elrond_wasm::contract]
 pub trait DustConverter:
-    config::ConfigModule +
-    proxy::ProxyModule
+    config::ConfigModule 
+    + proxy::ProxyModule
+    + permissions_module::PermissionsModule
+    + pausable::PausableModule 
 {
 
     #[init]
@@ -33,11 +37,17 @@ pub trait DustConverter:
         );
         self.wrapped_token().set_if_empty(wrapped_token);
         self.collected_fee_amount().set_if_empty(BigUint::zero());
+        self.state().set(State::Inactive);
+
+        let all_permissions = Permissions::OWNER | Permissions::ADMIN | Permissions::PAUSE;
+        self.set_permissions(self.blockchain().get_caller(), all_permissions);
     }
 
     #[payable("*")]
     #[endpoint(swapDustTokens)]
-    fn swap_dust_tokens(&self) {
+    fn swap_dust_token(&self, amount_out_min: BigUint) {
+        self.require_state_active();
+
         let payments = self.call_value().all_esdt_transfers();
         let known_tokens_mapper = self.known_tokens();
         let wrapped_egld = self.wrapped_token().get();
@@ -58,9 +68,12 @@ pub trait DustConverter:
 
         let fee_amount = self.get_fee_from_input(&total_amount);
         total_amount -= &fee_amount;
+        require!(total_amount >= amount_out_min, "Slippage exceeded");
 
         let caller = self.blockchain().get_caller();
-        self.send().direct_esdt(&caller, &wrapped_egld, 0, &total_amount);
+        if &total_amount > &BigUint::zero() {
+            self.send().direct_esdt(&caller, &wrapped_egld, 0, &total_amount);
+        }
         if !refund_payments.is_empty() {
             self.send().direct_multi(&caller, &refund_payments);
         }

@@ -5,20 +5,24 @@ pub type AddKnownTokenType<M> = MultiValue3<TokenIdentifier<M>, ManagedAddress<M
 pub const MAX_FEE_PERCENTAGE: u64 = 10_000u64;
 
 #[elrond_wasm::module]
-pub trait ConfigModule {
+pub trait ConfigModule:
+    permissions_module::PermissionsModule
+    + pausable::PausableModule 
+{
 
-    #[only_owner]
     #[payable("*")]
     #[endpoint(topUp)]
     fn top_up(&self) {
+        self.require_caller_has_owner_or_admin_permissions();
         let (token_id, _) = self.call_value().single_fungible_esdt();
         require!(token_id == self.wrapped_token().get(), "Invalid token");
     }
 
-    #[only_owner]
     #[endpoint(extractFees)]
     fn extract_fees(&self) {
-        let owner = self.blockchain().get_owner_address();
+        self.require_caller_has_owner_permissions();
+
+        let owner = self.blockchain().get_caller();
         let wrapped_token = self.wrapped_token().get();
         let fee_amount = self.collected_fee_amount().get();
         self.send().direct_esdt(&owner, &wrapped_token, 0, &fee_amount);
@@ -26,25 +30,26 @@ pub trait ConfigModule {
         self.collected_fee_amount().set(BigUint::zero());
     }
 
-    #[only_owner]
     #[endpoint(setFeePercentage)]
     fn set_fee_percentage(&self, protocol_fee: u64) {
+        self.require_caller_has_owner_permissions();
         require!(protocol_fee < MAX_FEE_PERCENTAGE, "Fee percent invalid");
 
         self.protocol_fee_percent().set(protocol_fee);
     }
 
-    #[only_owner]
     #[endpoint(setSlippagePercentage)]
     fn set_slippage_percentage(&self, slippage: u64) {
+        self.require_caller_has_owner_or_admin_permissions();
         require!(slippage < MAX_FEE_PERCENTAGE, "Slippage percent invalid");
 
         self.slippage_percent().set(slippage);
     }
 
-    #[only_owner]
     #[endpoint(addKnownTokens)]
     fn add_known_tokens(&self, known_tokens: MultiValueEncoded<AddKnownTokenType<Self::Api>>) {
+        self.require_caller_has_owner_or_admin_permissions();
+
         let mut all_tokens_vec = self.all_tokens().get();
         let known_tokens_mapper = self.known_tokens();
         for entry in known_tokens {
@@ -66,9 +71,10 @@ pub trait ConfigModule {
         self.all_tokens().set(all_tokens_vec);
     }
 
-    #[only_owner]
     #[endpoint(removeKnownTokens)]
     fn remove_known_tokens(&self, tokens: MultiValueEncoded<TokenIdentifier>) {
+        self.require_caller_has_owner_or_admin_permissions();
+
         let mut all_tokens_vec = self.all_tokens().get();
         let known_tokens_mapper = self.known_tokens();
         for token in tokens {

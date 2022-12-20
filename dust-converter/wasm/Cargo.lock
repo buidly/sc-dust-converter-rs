@@ -48,6 +48,8 @@ name = "dust-converter"
 version = "0.0.0"
 dependencies = [
  "elrond-wasm",
+ "pausable",
+ "permissions_module",
 ]
 
 [[package]]
@@ -199,6 +201,22 @@ name = "once_cell"
 version = "1.8.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "692fcb63b64b1758029e0a96ee63e049ce8c5948587f2f7208df04625e5f6b56"
+
+[[package]]
+name = "pausable"
+version = "0.0.0"
+dependencies = [
+ "elrond-wasm",
+ "permissions_module",
+]
+
+[[package]]
+name = "permissions_module"
+version = "0.0.0"
+dependencies = [
+ "bitflags",
+ "elrond-wasm",
+]
 
 [[package]]
 name = "proc-macro2"

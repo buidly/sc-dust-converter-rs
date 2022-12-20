@@ -16,3 +16,9 @@ version = "0.38.0"
 
 [dev-dependencies.elrond-wasm-debug]
 version = "0.38.0"
+
+[dependencies.pausable]
+path = "../modules/pausable"
+
+[dependencies.permissions_module]
+path = "../modules/permissions_module"

@@ -5,9 +5,9 @@
 ////////////////////////////////////////////////////
 
 // Init:                                 1
-// Endpoints:                           13
+// Endpoints:                           22
 // Async Callback (empty):               1
-// Total number of exported functions:  15
+// Total number of exported functions:  24
 
 #![no_std]
 
@@ -27,6 +27,15 @@ elrond_wasm_node::wasm_endpoints! {
         getProtocolFeePercent
         getSlippagePercent
         getWrappedTokenId
+        addAdmin
+        removeAdmin
+        updateOwnerOrAdmin
+        getPermissions
+        addToPauseWhitelist
+        removeFromPauseWhitelist
+        pause
+        resume
+        getState
     )
 }
 

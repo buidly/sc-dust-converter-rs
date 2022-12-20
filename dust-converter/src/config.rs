@@ -11,10 +11,19 @@ pub trait ConfigModule {
     #[payable("*")]
     #[endpoint(topUp)]
     fn top_up(&self) {
-        let (token_id, amount) = self.call_value().single_fungible_esdt();
+        let (token_id, _) = self.call_value().single_fungible_esdt();
         require!(token_id == self.wrapped_token().get(), "Invalid token");
+    }
 
-        self.wrapped_token_amount().update(|x| *x += amount);
+    #[only_owner]
+    #[endpoint(extractFees)]
+    fn extract_fees(&self) {
+        let owner = self.blockchain().get_owner_address();
+        let wrapped_token = self.wrapped_token().get();
+        let fee_amount = self.collected_fee_amount().get();
+        self.send().direct_esdt(&owner, &wrapped_token, 0, &fee_amount);
+
+        self.collected_fee_amount().set(BigUint::zero());
     }
 
     #[only_owner]
@@ -91,10 +100,10 @@ pub trait ConfigModule {
     #[storage_mapper("token_threshold")]
     fn token_threshold(&self, token_id: &TokenIdentifier) -> SingleValueMapper<BigUint>;
 
-    #[storage_mapper("knownTokens")]
+    #[storage_mapper("known_tokens")]
     fn known_tokens(&self) -> WhitelistMapper<Self::Api, TokenIdentifier>;
 
-    #[storage_mapper("allTokens")]
+    #[storage_mapper("all_tokens")]
     fn all_tokens(&self) -> SingleValueMapper<ManagedVec<TokenIdentifier>>;
 
     #[view(getProtocolFeePercent)]
@@ -106,10 +115,9 @@ pub trait ConfigModule {
     fn slippage_percent(&self) -> SingleValueMapper<u64>;
 
     #[view(getWrappedTokenId)]
-    #[storage_mapper("wrappedTokenId")]
+    #[storage_mapper("wrapped_token_id")]
     fn wrapped_token(&self) -> SingleValueMapper<TokenIdentifier>;
 
-    #[view(getWrappedTokenAmount)]
-    #[storage_mapper("wrapped_token_amount")]
-    fn wrapped_token_amount(&self) -> SingleValueMapper<BigUint>;
+    #[storage_mapper("collected_fee_amount")]
+    fn collected_fee_amount(&self) -> SingleValueMapper<BigUint>;
 }

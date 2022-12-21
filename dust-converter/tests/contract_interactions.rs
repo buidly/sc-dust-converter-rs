@@ -1,5 +1,7 @@
+use std::fmt::Debug;
+
 use elrond_wasm::{
-    types::{Address, MultiValueEncoded},
+    types::{Address, MultiValueEncoded, TokenIdentifier},
     elrond_codec::multi_types::MultiValue3
 };
 use elrond_wasm_debug::{
@@ -124,10 +126,15 @@ where
         tx.assert_ok()
     }
 
-    pub fn sell_dust_token(&mut self) {
+    pub fn sell_dust_token(&mut self, tokens: Vec<&[u8]>) {
         self.b_wrapper
             .execute_tx(&self.owner, &self.c_wrapper, &rust_biguint!(0u64), |sc| {
-                sc.sell_dust_tokens();
+                let mut multi = MultiValueEncoded::new();
+                for token in tokens {
+                    multi.push(managed_token_id!(token));
+                }
+
+                sc.sell_dust_tokens(multi);
             })
             .assert_ok();
     }

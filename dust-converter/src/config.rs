@@ -2,7 +2,8 @@ elrond_wasm::imports!();
 
 pub type AddKnownTokenType<M> = MultiValue3<TokenIdentifier<M>, ManagedAddress<M>, BigUint<M>>;
 
-pub const MAX_FEE_PERCENTAGE: u64 = 10_000u64;
+pub const MAX_PERCENTAGE: u64 = 10_000u64;
+pub const MAX_FEE_PERCENTAGE: u64 = 9_000u64;
 
 #[elrond_wasm::module]
 pub trait ConfigModule:

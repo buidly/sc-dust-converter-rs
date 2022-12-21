@@ -29,7 +29,7 @@ pub trait PairMock {
         token_out: TokenIdentifier,
         amount_out_min: BigUint,
     ) -> EsdtTokenPayment {
-        let (token_in, _, amount_in) = self.call_value().single_esdt().into_tuple();
+        let (_token_in, _, _amount_in) = self.call_value().single_esdt().into_tuple();
         let caller = self.blockchain().get_caller();
         let payment = EsdtTokenPayment::new(token_out.clone(), 0, amount_out_min.clone());
 

@@ -11,10 +11,10 @@ use permissions_module::Permissions;
 
 #[elrond_wasm::contract]
 pub trait DustConverter:
-    config::ConfigModule 
+    config::ConfigModule
     + proxy::ProxyModule
     + permissions_module::PermissionsModule
-    + pausable::PausableModule 
+    + pausable::PausableModule
 {
 
     #[init]
@@ -45,7 +45,7 @@ pub trait DustConverter:
 
     #[payable("*")]
     #[endpoint(swapDustTokens)]
-    fn swap_dust_token(&self, amount_out_min: BigUint) {
+    fn swap_dust_tokens(&self, amount_out_min: BigUint) {
         self.require_state_active();
 
         let payments = self.call_value().all_esdt_transfers();

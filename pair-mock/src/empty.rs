@@ -26,9 +26,15 @@ pub trait PairMock {
     #[endpoint(swapTokensFixedInput)]
     fn swap_tokens_fixed_input(
         &self,
-        _token_out: TokenIdentifier,
-        _amount_out_min: BigUint,
-    ) -> SwapTokensFixedInputResultType<Self::Api> {
-        todo!()
+        token_out: TokenIdentifier,
+        amount_out_min: BigUint,
+    ) -> EsdtTokenPayment {
+        let (token_in, _, amount_in) = self.call_value().single_esdt().into_tuple();
+        let caller = self.blockchain().get_caller();
+        let payment = EsdtTokenPayment::new(token_out.clone(), 0, amount_out_min.clone());
+
+        self.send().direct_esdt(&caller, &token_out, 0, &amount_out_min);
+
+        payment
     }
 }

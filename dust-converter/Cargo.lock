@@ -109,6 +109,8 @@ dependencies = [
  "elrond-wasm",
  "elrond-wasm-debug",
  "num-bigint",
+ "pausable",
+ "permissions_module",
 ]
 
 [[package]]
@@ -397,6 +399,22 @@ name = "pathdiff"
 version = "0.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8835116a5c179084a830efb3adc117ab007512b535bc1a21c991d3b32a6b44dd"
+
+[[package]]
+name = "pausable"
+version = "0.0.0"
+dependencies = [
+ "elrond-wasm",
+ "permissions_module",
+]
+
+[[package]]
+name = "permissions_module"
+version = "0.0.0"
+dependencies = [
+ "bitflags",
+ "elrond-wasm",
+]
 
 [[package]]
 name = "ppv-lite86"

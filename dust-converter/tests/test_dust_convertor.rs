@@ -107,7 +107,7 @@ fn test_sell_dust_tokens() {
     let total = amount_out - fee;
 
     setup.swap_dust_token(&payments, &user, total, None);
-    setup.sell_dust_token();
+    setup.sell_dust_token(vec![KNOWN_TOKEN_1, KNOWN_TOKEN_2]);
 
     setup.b_wrapper.check_esdt_balance(&user, KNOWN_TOKEN_1, &rust_biguint!(0u64));
     setup.b_wrapper.check_esdt_balance(&user, KNOWN_TOKEN_2, &rust_biguint!(0u64));

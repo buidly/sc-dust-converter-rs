@@ -82,10 +82,9 @@ pub trait DustConverter:
     }
 
     #[endpoint(sellDustTokens)]
-    fn sell_dust_tokens(&self) {
+    fn sell_dust_tokens(&self, tokens_to_sell: MultiValueEncoded<TokenIdentifier>) {
         let wrapped_egld = self.wrapped_token().get();
-        let all_tokens = self.all_tokens().get();
-        for token in &all_tokens {
+        for token in tokens_to_sell.into_iter() {
             let pair = self.pair_contract(&token).get();
             let balance = self.blockchain().get_sc_balance(&EgldOrEsdtTokenIdentifier::esdt(token.clone()), 0);
             if balance == BigUint::zero() {

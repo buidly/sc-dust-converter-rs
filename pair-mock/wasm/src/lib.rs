@@ -5,9 +5,9 @@
 ////////////////////////////////////////////////////
 
 // Init:                                 1
-// Endpoints:                            1
+// Endpoints:                            2
 // Async Callback (empty):               1
-// Total number of exported functions:   3
+// Total number of exported functions:   4
 
 #![no_std]
 
@@ -15,6 +15,7 @@ elrond_wasm_node::wasm_endpoints! {
     pair_mock
     (
         getAmountOut
+        swapTokensFixedInput
     )
 }
 

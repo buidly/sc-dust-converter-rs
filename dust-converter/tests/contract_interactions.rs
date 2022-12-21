@@ -19,6 +19,7 @@ use dust_converter::{
     DustConverter,
     config::ConfigModule
 };
+use pausable::PausableModule;
 
 
 pub struct DustConvertorSetup<DustBuilder, MockBuilder>
@@ -103,10 +104,16 @@ where
             .assert_ok();
     }
 
-    pub fn swap_dust_token(&mut self, payments: &[TxTokenTransfer], caller: &Address, expected_err: Option<&str>) {
+    pub fn swap_dust_token(
+        &mut self,
+        payments: &[TxTokenTransfer],
+        caller: &Address,
+        min_out_amount: u64,
+        expected_err: Option<&str>
+    ) {
         let tx = self.b_wrapper
             .execute_esdt_multi_transfer(&caller, &self.c_wrapper, &payments, |sc|{
-                sc.swap_dust_tokens();
+                sc.swap_dust_tokens(managed_biguint!(min_out_amount));
             });
 
         if let Some(msg) = expected_err {
@@ -121,6 +128,14 @@ where
         self.b_wrapper
             .execute_tx(&self.owner, &self.c_wrapper, &rust_biguint!(0u64), |sc| {
                 sc.sell_dust_tokens();
+            })
+            .assert_ok();
+    }
+
+    pub fn resume(&mut self) {
+        self.b_wrapper
+            .execute_tx(&self.owner, &self.c_wrapper, &rust_biguint!(0u64), |sc| {
+                sc.resume();
             })
             .assert_ok();
     }

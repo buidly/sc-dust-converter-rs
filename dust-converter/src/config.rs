@@ -4,11 +4,12 @@ pub type AddKnownTokenType<M> = MultiValue3<TokenIdentifier<M>, ManagedAddress<M
 
 pub const MAX_PERCENTAGE: u64 = 10_000u64;
 pub const MAX_FEE_PERCENTAGE: u64 = 9_000u64;
+pub const DEFAULT_REFERRAL_PERCENTAGE: u64 = 500u64;
 
 #[elrond_wasm::module]
 pub trait ConfigModule:
     permissions_module::PermissionsModule
-    + pausable::PausableModule 
+    + pausable::PausableModule
 {
 
     #[payable("*")]
@@ -94,11 +95,23 @@ pub trait ConfigModule:
         self.all_tokens().set(&all_tokens_vec);
     }
 
+    #[endpoint(setReferralFeePercentage)]
+    fn set_referral_fee_percentage(&self, tag: ManagedBuffer, new_percentage: u64) {
+        self.require_caller_has_owner_or_admin_permissions();
+        require!(new_percentage < MAX_FEE_PERCENTAGE, "Invalid new percentage given");
 
-    #[view(getAllTokens)]
-    fn get_all_tokens(&self) -> MultiValueEncoded<TokenIdentifier> {
-        self.all_tokens().get().into()
+        match self.referral_mapping().get(&tag) {
+            Some(details) => self.referral_mapping().insert(tag, (details.0, new_percentage)),
+            None => sc_panic!("Tag not registered")
+        };
     }
+
+    #[storage_mapper("referral_mapping")]
+    fn referral_mapping(&self) -> MapMapper<ManagedBuffer, (ManagedAddress, u64)>;
+
+    #[view(getReferralTagRewards)]
+    #[storage_mapper("referral_fee_mapping")]
+    fn referral_fee_mapping(&self) -> MapMapper<ManagedAddress, BigUint>;
 
     #[storage_mapper("pair_contract")]
     fn pair_contract(&self, token_id: &TokenIdentifier) -> SingleValueMapper<ManagedAddress>;

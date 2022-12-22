@@ -1,8 +1,6 @@
-use std::fmt::Debug;
-
 use elrond_wasm::{
-    types::{Address, MultiValueEncoded, TokenIdentifier},
-    elrond_codec::multi_types::MultiValue3
+    types::{Address, MultiValueEncoded},
+    elrond_codec::multi_types::{MultiValue3, OptionalValue}
 };
 use elrond_wasm_debug::{
     DebugApi,
@@ -11,7 +9,7 @@ use elrond_wasm_debug::{
     rust_biguint,
     managed_biguint,
     managed_address,
-    tx_mock::{TxTokenTransfer}
+    tx_mock::{TxTokenTransfer}, managed_buffer
 };
 
 static DUST_WASM_PATH: &str = "../output/dust-converter.wasm";
@@ -111,11 +109,16 @@ where
         payments: &[TxTokenTransfer],
         caller: &Address,
         min_out_amount: u64,
-        expected_err: Option<&str>
+        expected_err: Option<&str>,
+        referral_tag: Option<&[u8]>
     ) {
         let tx = self.b_wrapper
             .execute_esdt_multi_transfer(&caller, &self.c_wrapper, &payments, |sc|{
-                sc.swap_dust_tokens(managed_biguint!(min_out_amount));
+                let referral_tag_wrapped = match referral_tag {
+                    Some(tag) => OptionalValue::Some(managed_buffer!(tag)),
+                    None => OptionalValue::None
+                };
+                sc.swap_dust_tokens(managed_biguint!(min_out_amount), referral_tag_wrapped);
             });
 
         if let Some(msg) = expected_err {
@@ -143,6 +146,64 @@ where
         self.b_wrapper
             .execute_tx(&self.owner, &self.c_wrapper, &rust_biguint!(0u64), |sc| {
                 sc.resume();
+            })
+            .assert_ok();
+    }
+
+    pub fn register_referral_tag(&mut self, caller: &Address, tag: &[u8]) {
+        self.b_wrapper
+            .execute_tx(&caller, &self.c_wrapper, &rust_biguint!(0u64), |sc| {
+                sc.register_referral_tag(managed_buffer!(tag));
+            })
+            .assert_ok();
+    }
+
+    pub fn check_registered_tags(&mut self, expected_tag: &[u8], caller: &Address) {
+        self.b_wrapper
+            .execute_query(&self.c_wrapper, |sc| {
+                for (key, _) in sc.referral_mapping().iter() {
+                    if key == managed_buffer!(expected_tag) {
+                        return;
+                    }
+                }
+                assert!(false, "Tag not found");
+
+            })
+            .assert_ok();
+
+        self.b_wrapper
+            .execute_query(&self.c_wrapper, |sc| {
+                assert!(sc.referral_fee_mapping().contains_key(&managed_address!(caller)));
+            })
+            .assert_ok();
+    }
+
+    pub fn set_referral_fee_percentage(&mut self, percentage: u64, tag: &[u8]) {
+        self.b_wrapper
+            .execute_tx(&self.owner, &self.c_wrapper, &rust_biguint!(0u64), |sc| {
+                sc.set_referral_fee_percentage(managed_buffer!(tag), percentage);
+            })
+            .assert_ok();
+    }
+
+    pub fn check_referral_fee_percentage(&mut self, expected_percentage: u64, tag: &[u8]) {
+        self.b_wrapper
+            .execute_query(&self.c_wrapper, |sc| {
+                match sc.referral_mapping().get(&managed_buffer!(tag)) {
+                    Some(percentage) => assert_eq!(percentage.1, expected_percentage),
+                    None => assert!(false, "Tag not found")
+                }
+            })
+            .assert_ok();
+    }
+
+    pub fn check_referral_fee_amount(&mut self, address: &Address, expected_amount: u64) {
+        self.b_wrapper
+            .execute_query(&self.c_wrapper, |sc| {
+                match sc.referral_fee_mapping().get(&managed_address!(address)) {
+                    Some(amount) => assert_eq!(amount, managed_biguint!(expected_amount)),
+                    None => assert!(false, "Address not found")
+                }
             })
             .assert_ok();
     }

@@ -1,8 +1,8 @@
-WALLET_PEM="../../../dev-wallet/main1.pem"
+WALLET_PEM="~/erd-wallets/JonesTest.pem"
 PROXY="https://devnet-gateway.elrond.com"
 CHAIN_ID="D"
 
-DUST_CONVERTER_ADDRESS="erd1qqqqqqqqqqqqqpgqx5dy9lnep2uj43f066xp995phtqfyth54jusdk8pg4"
+DUST_CONVERTER_ADDRESS="erd1qqqqqqqqqqqqqpgqa995v3rrc93sezj6y6wzskkutaepls5m7pyqxe4pdu"
 
 # . ./interaction.snippets.sh && deploy 500 100 WEGLD-d7c6bb
 deploy() {
@@ -79,5 +79,16 @@ sellDustTokens() {
         --proxy=${PROXY} --chain=${CHAIN_ID} \
         --gas-limit=30000000 \
         --function=sellDustTokens \
+        --send || return
+}
+# source interaction.snippets.sh && registerReferralTag TEST5
+registerReferralTag() {
+    tag="0x$(echo -n $1 | xxd -p -u | tr -d '\n')"
+    erdpy --verbose contract call ${DUST_CONVERTER_ADDRESS} --recall-nonce \
+        --pem=${WALLET_PEM} \
+        --proxy=${PROXY} --chain=${CHAIN_ID} \
+        --gas-limit=30000000 \
+        --function=registerReferralTag \
+        --arguments $tag \
         --send || return
 }

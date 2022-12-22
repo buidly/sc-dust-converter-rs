@@ -45,7 +45,7 @@ pub trait DustConverter:
 
     #[payable("*")]
     #[endpoint(swapDustTokens)]
-    fn swap_dust_tokens(&self, amount_out_min: BigUint) {
+    fn swap_dust_tokens(&self, amount_out_min: BigUint, tag: OptionalValue<ManagedBuffer>) {
         self.require_state_active();
 
         let payments = self.call_value().all_esdt_transfers();
@@ -66,9 +66,13 @@ pub trait DustConverter:
             total_amount += &value;
         }
 
-        let fee_amount = self.get_fee_from_input(&total_amount);
+        let mut fee_amount = self.get_fee_from_input(&total_amount);
         total_amount -= &fee_amount;
         require!(total_amount >= amount_out_min, "Slippage exceeded");
+
+        if let Some(tag_name) = tag.into_option() {
+            fee_amount = self.subtract_referral_fee(fee_amount, tag_name);
+        }
 
         let caller = self.blockchain().get_caller();
         if &total_amount > &BigUint::zero() {
@@ -103,6 +107,67 @@ pub trait DustConverter:
                 self.swap_tokens_fixed_input(pair, token, balance, wrapped_egld.clone(), amount_out_min);
             }
         }
+    }
+
+    #[endpoint(registerReferralTag)]
+    fn register_referral_tag(&self, tag: ManagedBuffer) {
+        let caller = self.blockchain().get_caller();
+        require!(!self.referral_fee_mapping().contains_key(&caller), "User already registered a tag");
+        require!(!self.referral_mapping().contains_key(&tag), "Tag is unavailable");
+
+        self.referral_mapping().insert(tag, (caller.clone(), config::DEFAULT_REFERRAL_PERCENTAGE));
+        self.referral_fee_mapping().insert(caller, BigUint::zero());
+    }
+
+    #[endpoint(removeReferralTag)]
+    fn remove_referral_tag(&self, tag: ManagedBuffer) {
+        self.require_caller_has_owner_or_admin_permissions();
+        let wrapped_egld = self.wrapped_token().get();
+        let tag_details = match self.referral_mapping().get(&tag) {
+            Some(value) => value,
+            None => sc_panic!("Tag is not registered")
+        };
+
+        match self.referral_fee_mapping().get(&tag_details.0) {
+            Some(value) if value > BigUint::zero() => {
+                self.send().direct_esdt(&tag_details.0, &wrapped_egld, 0, &value);
+                self.referral_fee_mapping().remove(&tag_details.0);
+            },
+            Some(_) => {
+                self.referral_fee_mapping().remove(&tag_details.0);
+            },
+            None => ()
+        };
+
+        self.referral_mapping().remove(&tag);
+    }
+
+    #[endpoint(claimReferralRewards)]
+    fn claim_referral_rewards(&self) {
+        let caller = self.blockchain().get_caller();
+        match self.referral_fee_mapping().get(&caller) {
+            Some(value) if value > BigUint::zero() => {
+                let wrapped_egld = self.wrapped_token().get();
+                self.send().direct_esdt(&caller, &wrapped_egld, 0, &value);
+            },
+            _ =>  sc_panic!("No referral fees accumulated")
+        };
+    }
+
+    fn subtract_referral_fee(&self, fee_amount: BigUint, tag: ManagedBuffer) -> BigUint {
+        let tag_details = match self.referral_mapping().get(&tag) {
+            Some(value) => value,
+            None => sc_panic!("Tag not registered")
+        };
+
+        let referral_amount = &fee_amount * tag_details.1 / MAX_PERCENTAGE;
+
+        match self.referral_fee_mapping().get(&tag_details.0) {
+            Some(value) => self.referral_fee_mapping().insert(tag_details.0, value + &referral_amount),
+            None => sc_panic!("Tag was not registered correctly")
+        };
+
+        fee_amount - referral_amount
     }
 
     #[inline]

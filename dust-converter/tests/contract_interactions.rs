@@ -14,7 +14,6 @@ use elrond_wasm_debug::{
 
 static DUST_WASM_PATH: &str = "../output/dust-converter.wasm";
 
-use dust_converter;
 use dust_converter::{
     DustConverter,
     config::ConfigModule
@@ -58,7 +57,7 @@ where
             pair_builder,
             "mocked wasm"
         );
-        b_wrapper.set_esdt_balance(&pair_wrapper.address_ref(), wrapped_token, &initial_sc_balance);
+        b_wrapper.set_esdt_balance(pair_wrapper.address_ref(), wrapped_token, &initial_sc_balance);
 
         b_wrapper
             .execute_tx(&owner, &contract_wrapper, &rust_zero, |sc| {
@@ -113,7 +112,7 @@ where
         referral_tag: Option<&[u8]>
     ) {
         let tx = self.b_wrapper
-            .execute_esdt_multi_transfer(&caller, &self.c_wrapper, &payments, |sc|{
+            .execute_esdt_multi_transfer(caller, &self.c_wrapper, payments, |sc|{
                 let referral_tag_wrapped = match referral_tag {
                     Some(tag) => OptionalValue::Some(managed_buffer!(tag)),
                     None => OptionalValue::None
@@ -152,7 +151,7 @@ where
 
     pub fn register_referral_tag(&mut self, caller: &Address, tag: &[u8]) {
         self.b_wrapper
-            .execute_tx(&caller, &self.c_wrapper, &rust_biguint!(0u64), |sc| {
+            .execute_tx(caller, &self.c_wrapper, &rust_biguint!(0u64), |sc| {
                 sc.register_referral_tag(managed_buffer!(tag));
             })
             .assert_ok();
@@ -166,7 +165,7 @@ where
                         return;
                     }
                 }
-                assert!(false, "Tag not found");
+                panic!("Tag not found in mapping");
 
             })
             .assert_ok();
@@ -191,7 +190,7 @@ where
             .execute_query(&self.c_wrapper, |sc| {
                 match sc.referral_mapping().get(&managed_buffer!(tag)) {
                     Some(percentage) => assert_eq!(percentage.1, expected_percentage),
-                    None => assert!(false, "Tag not found")
+                    None => panic!("Tag not found in mapping")
                 }
             })
             .assert_ok();
@@ -202,7 +201,7 @@ where
             .execute_query(&self.c_wrapper, |sc| {
                 match sc.referral_fee_mapping().get(&managed_address!(address)) {
                     Some(amount) => assert_eq!(amount, managed_biguint!(expected_amount)),
-                    None => assert!(false, "Address not found")
+                    None => panic!("Address not found in mapping")
                 }
             })
             .assert_ok();

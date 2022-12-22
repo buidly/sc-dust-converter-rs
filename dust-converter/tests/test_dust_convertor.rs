@@ -141,9 +141,8 @@ fn test_refund_unknown_tokens() {
         }
     ];
 
-    let amount_out = AMOUNT_OUT * 1u64;
-    let fee = amount_out * 500u64 / MAX_PERCENTAGE;
-    let total = amount_out - fee;
+    let fee = AMOUNT_OUT * 500u64 / MAX_PERCENTAGE;
+    let total = AMOUNT_OUT - fee;
 
     setup.swap_dust_token(&payments, &user, total, None, None);
 
@@ -190,7 +189,7 @@ fn test_swap_token_with_referral_tag() {
 
     let user_2 = setup.b_wrapper.create_user_account(&rust_biguint!(0u64));
     setup.b_wrapper.set_esdt_balance(&user_2, KNOWN_TOKEN_1, &rust_biguint!(known_token_amount));
-    setup.b_wrapper.set_esdt_balance(&user_2, UNKOWN_TOKEN_3, &rust_biguint!(unkown_token_amount));
+    setup.b_wrapper.set_esdt_balance(&user_2, KNOWN_TOKEN_2, &rust_biguint!(unkown_token_amount));
     let payments = [
         TxTokenTransfer {
             token_identifier: KNOWN_TOKEN_1.to_vec(),
@@ -198,13 +197,13 @@ fn test_swap_token_with_referral_tag() {
             value: rust_biguint!(known_token_amount)
         },
         TxTokenTransfer {
-            token_identifier: UNKOWN_TOKEN_3.to_vec(),
+            token_identifier: KNOWN_TOKEN_2.to_vec(),
             nonce: 0,
             value: rust_biguint!(unkown_token_amount)
         }
     ];
 
-    let amount_out = AMOUNT_OUT * 1u64;
+    let amount_out = AMOUNT_OUT * 2u64;
     let fee = amount_out * 500u64 / MAX_PERCENTAGE;
     let referral_fee = fee * DEFAULT_REFERRAL_PERCENTAGE / MAX_PERCENTAGE;
     let total = amount_out - fee;

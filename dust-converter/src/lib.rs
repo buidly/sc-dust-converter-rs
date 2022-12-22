@@ -75,7 +75,7 @@ pub trait DustConverter:
         }
 
         let caller = self.blockchain().get_caller();
-        if &total_amount > &BigUint::zero() {
+        if total_amount > 0 {
             self.send().direct_esdt(&caller, &wrapped_egld, 0, &total_amount);
         }
         if !refund_payments.is_empty() {
@@ -102,7 +102,7 @@ pub trait DustConverter:
 
             let value = self.get_amount_out(pair.clone(), token.clone(), balance.clone());
             let threshold = self.token_threshold(&token).get();
-            if &value > &threshold {
+            if value > threshold {
                 let amount_out_min = self.get_amount_out_min(&value);
                 self.swap_tokens_fixed_input(pair, token, balance, wrapped_egld.clone(), amount_out_min);
             }
@@ -180,9 +180,8 @@ pub trait DustConverter:
         require!(!self.slippage_percent().is_empty(), "Slippage not set");
         let slippage = self.slippage_percent().get();
         let slippage_amount = amount_in * slippage / MAX_PERCENTAGE;
-        let amount_out_min = amount_in.sub(&slippage_amount);
 
-        amount_out_min
+        amount_in.sub(&slippage_amount)
     }
 
 }

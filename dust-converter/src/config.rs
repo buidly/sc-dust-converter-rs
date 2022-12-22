@@ -95,6 +95,11 @@ pub trait ConfigModule:
         self.all_tokens().set(&all_tokens_vec);
     }
 
+    #[view(getAllTokens)]
+    fn get_all_tokens(&self) -> MultiValueEncoded<TokenIdentifier> {
+        self.all_tokens().get().into()
+    }
+
     #[endpoint(setReferralFeePercentage)]
     fn set_referral_fee_percentage(&self, tag: ManagedBuffer, new_percentage: u64) {
         self.require_caller_has_owner_or_admin_permissions();

@@ -158,7 +158,7 @@ fn test_register_referral_tag() {
     let user = setup.b_wrapper.create_user_account(&rust_biguint!(0u64));
     let tag = "TEST5".to_string();
     setup.register_referral_tag(&user, tag.as_bytes());
-    setup.check_registered_tags(tag.as_bytes());
+    setup.check_registered_tags(tag.as_bytes(), &user);
 }
 
 #[test]

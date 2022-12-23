@@ -104,26 +104,34 @@ pub trait ConfigModule:
     fn set_referral_fee_percentage(&self, tag: ManagedBuffer, new_percentage: u64) {
         self.require_caller_has_owner_or_admin_permissions();
         require!(new_percentage < MAX_FEE_PERCENTAGE, "Invalid new percentage given");
+        require!(!self.referral_tag_percent(&tag).is_empty(), "Tag not found");
         self.referral_tag_percent(&tag).set(new_percentage);
     }
 
     #[endpoint(claimReferralFees)]
-    fn claim_referral_fees(&self, tag: ManagedBuffer) {
+    fn claim_referral_fees(&self) {
         let caller = self.blockchain().get_caller();
-        let amount = self.collected_tag_fees(&tag).get();
+        require!(self.user_tag_mapping(&caller).is_empty(), "Not a tag owner");
+        let user_tag = self.user_tag_mapping(&caller).get();
+
+        let amount = self.collected_tag_fees(&user_tag).get();
+        require!(amount > 0, "No fees to claim");
 
         self.send().direct_esdt(&caller, &self.wrapped_token().get(), 0, &amount);
-        self.collected_tag_fees(&tag).clear();
+        self.collected_tag_fees(&user_tag).clear();
     }
 
+    #[view(getReferralFeePercentage)]
     #[storage_mapper("referral_tags_percent")]
     fn referral_tag_percent(&self, tag: &ManagedBuffer) -> SingleValueMapper<u64>;
 
+    #[view(getCollectedFeeAmount)]
     #[storage_mapper("collected_tag_fees")]
     fn collected_tag_fees(&self, tag: &ManagedBuffer) -> SingleValueMapper<BigUint>;
 
+    #[view(getUserTag)]
     #[storage_mapper("user_tag_mapping")]
-    fn user_tag_mapping(&self, tag: &ManagedBuffer) -> SingleValueMapper<ManagedAddress>;
+    fn user_tag_mapping(&self, user: &ManagedAddress) -> SingleValueMapper<ManagedBuffer>;
 
     #[storage_mapper("pair_contract")]
     fn pair_contract(&self, token_id: &TokenIdentifier) -> SingleValueMapper<ManagedAddress>;

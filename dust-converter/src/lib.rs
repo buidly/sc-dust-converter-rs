@@ -71,7 +71,7 @@ pub trait DustConverter:
         require!(total_amount >= amount_out_min, "Slippage exceeded");
 
         if let Some(tag_name) = tag.into_option() {
-            fee_amount = self.subtract_referral_fee(fee_amount, tag_name);
+            fee_amount = self.subtract_referral_fee_and_update_collected_fees(fee_amount, tag_name);
         }
 
         let caller = self.blockchain().get_caller();
@@ -112,32 +112,32 @@ pub trait DustConverter:
     #[endpoint(registerReferralTag)]
     fn register_referral_tag(&self, tag: ManagedBuffer) {
         let caller = self.blockchain().get_caller();
-        require!(self.user_tag_mapping(&tag).is_empty(), "Tag already registered");
+        require!(self.referral_tag_percent(&tag).is_empty(), "Tag already registered");
 
         self.referral_tag_percent(&tag).set(config::DEFAULT_REFERRAL_PERCENTAGE);
-        self.user_tag_mapping(&tag).set(caller);
+        self.user_tag_mapping(&caller).set(tag);
     }
 
     #[endpoint(removeReferralTag)]
-    fn remove_referral_tag(&self, tag: ManagedBuffer) {
+    fn remove_referral_tag(&self, user_address: ManagedAddress) {
         self.require_caller_has_owner_or_admin_permissions();
+
         let wrapped_egld = self.wrapped_token().get();
-        let tag_user = self.user_tag_mapping(&tag).get();
+        let tag = self.user_tag_mapping(&user_address).get();
         let collected_amount = self.collected_tag_fees(&tag).get();
         if collected_amount > 0 {
-            self.send().direct_esdt(&tag_user, &wrapped_egld, 0, &collected_amount);
+            self.send().direct_esdt(&user_address, &wrapped_egld, 0, &collected_amount);
         }
 
         self.referral_tag_percent(&tag).clear();
         self.collected_tag_fees(&tag).clear();
-        self.user_tag_mapping(&tag).clear();
+        self.user_tag_mapping(&user_address).clear();
     }
 
-    fn subtract_referral_fee(&self, fee_amount: BigUint, tag: ManagedBuffer) -> BigUint {
+    fn subtract_referral_fee_and_update_collected_fees(&self, fee_amount: BigUint, tag: ManagedBuffer) -> BigUint {
         let tag_percentage = self.referral_tag_percent(&tag).get();
         let referral_amount = &fee_amount * tag_percentage / MAX_PERCENTAGE;
-        let collected_amount = self.collected_tag_fees(&tag).get();
-        self.collected_tag_fees(&tag).set(collected_amount + &referral_amount);
+        self.collected_tag_fees(&tag).update(|x| *x += &referral_amount);
 
         fee_amount - referral_amount
     }

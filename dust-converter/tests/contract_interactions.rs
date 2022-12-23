@@ -157,11 +157,11 @@ where
             .assert_ok();
     }
 
-    pub fn check_registered_tags(&mut self, expected_tag: &[u8]) {
+    pub fn check_registered_tags(&mut self, expected_tag: &[u8], user: &Address) {
         self.b_wrapper
             .execute_query(&self.c_wrapper, |sc| {
-                let is_tag_registered = sc.user_tag_mapping(&managed_buffer!(expected_tag)).is_empty();
-                assert_eq!(is_tag_registered, false);
+                let tag = sc.user_tag_mapping(&managed_address!(user)).get();
+                assert_eq!(tag, managed_buffer!(expected_tag));
             })
             .assert_ok();
     }

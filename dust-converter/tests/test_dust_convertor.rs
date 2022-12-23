@@ -158,7 +158,7 @@ fn test_register_referral_tag() {
     let user = setup.b_wrapper.create_user_account(&rust_biguint!(0u64));
     let tag = "TEST5".to_string();
     setup.register_referral_tag(&user, tag.as_bytes());
-    setup.check_registered_tags(tag.as_bytes(), &user);
+    setup.check_registered_tags(tag.as_bytes());
 }
 
 #[test]
@@ -208,5 +208,5 @@ fn test_swap_token_with_referral_tag() {
     let referral_fee = fee * DEFAULT_REFERRAL_PERCENTAGE / MAX_PERCENTAGE;
     let total = amount_out - fee;
     setup.swap_dust_token(&payments, &user_2, total, None, Some(tag));
-    setup.check_referral_fee_amount(&user_1, referral_fee);
+    setup.check_referral_fee_amount(tag, referral_fee);
 }

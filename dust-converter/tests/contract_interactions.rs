@@ -157,22 +157,11 @@ where
             .assert_ok();
     }
 
-    pub fn check_registered_tags(&mut self, expected_tag: &[u8], caller: &Address) {
+    pub fn check_registered_tags(&mut self, expected_tag: &[u8]) {
         self.b_wrapper
             .execute_query(&self.c_wrapper, |sc| {
-                for (key, _) in sc.referral_mapping().iter() {
-                    if key == managed_buffer!(expected_tag) {
-                        return;
-                    }
-                }
-                panic!("Tag not found in mapping");
-
-            })
-            .assert_ok();
-
-        self.b_wrapper
-            .execute_query(&self.c_wrapper, |sc| {
-                assert!(sc.referral_fee_mapping().contains_key(&managed_address!(caller)));
+                let is_tag_registered = sc.user_tag_mapping(&managed_buffer!(expected_tag)).is_empty();
+                assert_eq!(is_tag_registered, false);
             })
             .assert_ok();
     }
@@ -188,21 +177,16 @@ where
     pub fn check_referral_fee_percentage(&mut self, expected_percentage: u64, tag: &[u8]) {
         self.b_wrapper
             .execute_query(&self.c_wrapper, |sc| {
-                match sc.referral_mapping().get(&managed_buffer!(tag)) {
-                    Some(percentage) => assert_eq!(percentage.1, expected_percentage),
-                    None => panic!("Tag not found in mapping")
-                }
+                assert_eq!(sc.referral_tag_percent(&managed_buffer!(tag)).get(), expected_percentage);
             })
             .assert_ok();
     }
 
-    pub fn check_referral_fee_amount(&mut self, address: &Address, expected_amount: u64) {
+    pub fn check_referral_fee_amount(&mut self, tag: &[u8], expected_amount: u64) {
         self.b_wrapper
             .execute_query(&self.c_wrapper, |sc| {
-                match sc.referral_fee_mapping().get(&managed_address!(address)) {
-                    Some(amount) => assert_eq!(amount, managed_biguint!(expected_amount)),
-                    None => panic!("Address not found in mapping")
-                }
+                let amount = sc.collected_tag_fees(&managed_buffer!(tag)).get();
+                assert_eq!(amount, managed_biguint!(expected_amount));
             })
             .assert_ok();
     }

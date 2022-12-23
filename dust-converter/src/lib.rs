@@ -136,6 +136,10 @@ pub trait DustConverter:
 
     fn subtract_referral_fee_and_update_collected_fees(&self, fee_amount: BigUint, tag: ManagedBuffer) -> BigUint {
         let tag_percentage = self.referral_tag_percent(&tag).get();
+        if tag_percentage == 0 {
+            return fee_amount;
+        }
+        
         let referral_amount = &fee_amount * tag_percentage / MAX_PERCENTAGE;
         self.collected_tag_fees(&tag).update(|x| *x += &referral_amount);
 

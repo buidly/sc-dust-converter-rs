@@ -108,24 +108,36 @@ pub trait ConfigModule:
         self.referral_tag_percent(&tag).set(new_percentage);
     }
 
-    #[endpoint(claimReferralFees)]
-    fn claim_referral_fees(&self) {
-        let caller = self.blockchain().get_caller();
-        require!(self.user_tag_mapping(&caller).is_empty(), "Not a tag owner");
-        let user_tag = self.user_tag_mapping(&caller).get();
+    #[endpoint(removeReferralTag)]
+    fn remove_referral_tag(&self, user_address: ManagedAddress) {
+        self.require_caller_has_owner_or_admin_permissions();
 
-        let amount = self.collected_tag_fees(&user_tag).get();
-        require!(amount > 0, "No fees to claim");
+        let wrapped_egld = self.wrapped_token().get();
+        let tag = self.user_tag_mapping(&user_address).get();
+        let collected_amount = self.collected_tag_fees(&tag).get();
+        if collected_amount > 0 {
+            self.send().direct_esdt(&user_address, &wrapped_egld, 0, &collected_amount);
+        }
 
-        self.send().direct_esdt(&caller, &self.wrapped_token().get(), 0, &amount);
-        self.collected_tag_fees(&user_tag).clear();
+        self.referral_tag_percent(&tag).clear();
+        self.collected_tag_fees(&tag).clear();
+        self.user_tag_mapping(&user_address).clear();
+    }
+
+    #[view(getCollectedFeeAmount)]
+    fn get_collected_fee_amount(
+        &self,
+        address: ManagedAddress
+    ) -> BigUint {
+        let tag_mapping = self.user_tag_mapping(&address);
+
+        self.collected_tag_fees(&tag_mapping.get()).get()
     }
 
     #[view(getReferralFeePercentage)]
     #[storage_mapper("referral_tags_percent")]
     fn referral_tag_percent(&self, tag: &ManagedBuffer) -> SingleValueMapper<u64>;
 
-    #[view(getCollectedFeeAmount)]
     #[storage_mapper("collected_tag_fees")]
     fn collected_tag_fees(&self, tag: &ManagedBuffer) -> SingleValueMapper<BigUint>;
 

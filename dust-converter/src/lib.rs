@@ -111,27 +111,29 @@ pub trait DustConverter:
 
     #[endpoint(registerReferralTag)]
     fn register_referral_tag(&self, tag: ManagedBuffer) {
+        self.require_state_active();
+
         let caller = self.blockchain().get_caller();
         require!(self.referral_tag_percent(&tag).is_empty(), "Tag already registered");
+        require!(self.user_tag_mapping(&caller).is_empty(), "User already owns a tag");
 
         self.referral_tag_percent(&tag).set(config::DEFAULT_REFERRAL_PERCENTAGE);
         self.user_tag_mapping(&caller).set(tag);
     }
 
-    #[endpoint(removeReferralTag)]
-    fn remove_referral_tag(&self, user_address: ManagedAddress) {
-        self.require_caller_has_owner_or_admin_permissions();
+    #[endpoint(claimReferralFees)]
+    fn claim_referral_fees(&self) {
+        self.require_state_active();
+        
+        let caller = self.blockchain().get_caller();
+        require!(!self.user_tag_mapping(&caller).is_empty(), "Not a tag owner");
+        let user_tag = self.user_tag_mapping(&caller).get();
 
-        let wrapped_egld = self.wrapped_token().get();
-        let tag = self.user_tag_mapping(&user_address).get();
-        let collected_amount = self.collected_tag_fees(&tag).get();
-        if collected_amount > 0 {
-            self.send().direct_esdt(&user_address, &wrapped_egld, 0, &collected_amount);
-        }
+        let amount = self.collected_tag_fees(&user_tag).get();
+        require!(amount > 0, "No fees to claim");
 
-        self.referral_tag_percent(&tag).clear();
-        self.collected_tag_fees(&tag).clear();
-        self.user_tag_mapping(&user_address).clear();
+        self.send().direct_esdt(&caller, &self.wrapped_token().get(), 0, &amount);
+        self.collected_tag_fees(&user_tag).clear();
     }
 
     fn subtract_referral_fee_and_update_collected_fees(&self, fee_amount: BigUint, tag: ManagedBuffer) -> BigUint {

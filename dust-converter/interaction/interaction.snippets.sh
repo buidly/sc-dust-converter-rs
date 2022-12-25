@@ -1,8 +1,8 @@
-WALLET_PEM="~/erd-wallets/JonesTest.pem"
+WALLET_PEM="../../../dev-wallet/main1.pem"
 PROXY="https://devnet-gateway.elrond.com"
 CHAIN_ID="D"
 
-DUST_CONVERTER_ADDRESS="erd1qqqqqqqqqqqqqpgqa995v3rrc93sezj6y6wzskkutaepls5m7pyqxe4pdu"
+DUST_CONVERTER_ADDRESS="erd1qqqqqqqqqqqqqpgq38zwarrn24c6df4essae6k8xeywf7aaa4jusz203xk"
 
 # . ./interaction.snippets.sh && deploy 500 100 WEGLD-d7c6bb
 deploy() {
@@ -40,6 +40,15 @@ upgrade() {
 
     echo ""
     echo "Smart Contract address: ${ADDRESS}"
+}
+
+resume() {
+    erdpy --verbose contract call ${DUST_CONVERTER_ADDRESS} --recall-nonce \
+        --pem=${WALLET_PEM} \
+        --proxy=${PROXY} --chain=${CHAIN_ID} \
+        --gas-limit=30000000 \
+        --function=resume \
+        --send || return
 }
 
 # . ./interaction.snippets.sh && addKnownTokens USDC-8d4068 erd1qqqqqqqqqqqqqpgqq67uv84ma3cekpa55l4l68ajzhq8qm3u0n4s20ecvx 0x016345785d8a0000
@@ -81,7 +90,7 @@ sellDustTokens() {
         --function=sellDustTokens \
         --send || return
 }
-# source interaction.snippets.sh && registerReferralTag TEST5
+# source interaction.snippets.sh && registerReferralTag alexj17
 registerReferralTag() {
     tag="0x$(echo -n $1 | xxd -p -u | tr -d '\n')"
     erdpy --verbose contract call ${DUST_CONVERTER_ADDRESS} --recall-nonce \

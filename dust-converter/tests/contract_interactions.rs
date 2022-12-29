@@ -1,5 +1,5 @@
 use elrond_wasm::{
-    types::{Address, MultiValueEncoded},
+    types::{Address, MultiValueEncoded, BigUint, ManagedBuffer},
     elrond_codec::multi_types::{MultiValue3, OptionalValue}
 };
 use elrond_wasm_debug::{
@@ -13,11 +13,21 @@ use elrond_wasm_debug::{
 };
 
 static DUST_WASM_PATH: &str = "../output/dust-converter.wasm";
+pub const TIER_1_MIN_VOLUME: u64 = 0u64;
+pub const TIER_2_MIN_VOLUME: u64 = 5_000_000_000u64;
+pub const TIER_3_MIN_VOLUME: u64 = 25_000_000_000u64;
+pub const TIER_4_MIN_VOLUME: u64 = 50_000_000_000_000u64;
+
+pub const TIER_1_FEE_PERCENT: u64 = 500u64;
+pub const TIER_2_FEE_PERCENT: u64 = 1_000u64;
+pub const TIER_3_FEE_PERCENT: u64 = 1_500u64;
+pub const TIER_4_FEE_PERCENT: u64 = 2_500u64;
 
 use dust_converter::{
     DustConverter,
     config::ConfigModule
 };
+use dust_converter::referral::ReferralModule;
 use pausable::PausableModule;
 
 
@@ -72,6 +82,30 @@ where
         b_wrapper
             .execute_esdt_transfer(&owner, &contract_wrapper, wrapped_token, 0, &initial_sc_balance, |sc| {
                 sc.top_up();
+            })
+            .assert_ok();
+
+        b_wrapper
+            .execute_tx(&owner, &contract_wrapper, &rust_zero, |sc| {
+                sc.add_tier_details(ManagedBuffer::from("Bronze"), BigUint::from(TIER_1_MIN_VOLUME), TIER_1_FEE_PERCENT);
+            })
+            .assert_ok();
+
+        b_wrapper
+            .execute_tx(&owner, &contract_wrapper, &rust_zero, |sc| {
+                sc.add_tier_details(ManagedBuffer::from("Silver"), BigUint::from(TIER_2_MIN_VOLUME), TIER_2_FEE_PERCENT);
+            })
+            .assert_ok();
+
+        b_wrapper
+            .execute_tx(&owner, &contract_wrapper, &rust_zero, |sc| {
+                sc.add_tier_details(ManagedBuffer::from("Gold"), BigUint::from(TIER_3_MIN_VOLUME), TIER_3_FEE_PERCENT);
+            })
+            .assert_ok();
+
+        b_wrapper
+            .execute_tx(&owner, &contract_wrapper, &rust_zero, |sc| {
+                sc.add_tier_details(ManagedBuffer::from("Platinum"), BigUint::from(TIER_4_MIN_VOLUME), TIER_4_FEE_PERCENT);
             })
             .assert_ok();
 
@@ -139,6 +173,80 @@ where
                 sc.sell_dust_tokens(multi);
             })
             .assert_ok();
+    }
+
+    pub fn add_tier_details(
+        &mut self, 
+        tier_name: &[u8], 
+        min_volume: u64, 
+        fee_percent: u64,
+        expected_err: Option<&str>
+    ) {
+        let tx = self.b_wrapper
+            .execute_tx(&self.owner, &self.c_wrapper, &rust_biguint!(0u64), |sc| {
+                sc.add_tier_details(managed_buffer!(tier_name), managed_biguint!(min_volume), fee_percent);
+            });
+
+        if let Some(msg) = expected_err {
+            tx.assert_error(4, msg);
+            return
+        }
+
+        tx.assert_ok()
+    }
+
+    pub fn remove_tier_details(
+        &mut self,
+        tier_name: &[u8],
+        expected_err: Option<&str>
+    ) {
+        let tx = self.b_wrapper
+            .execute_tx(&self.owner, &self.c_wrapper, &rust_biguint!(0u64), |sc| {
+                sc.remove_tier_details(managed_buffer!(tier_name));
+            });
+
+        if let Some(msg) = expected_err {
+            tx.assert_error(4, msg);
+            return
+        }
+
+        tx.assert_ok()
+    }
+
+    pub fn remove_referral_tag(
+        &mut self,
+        tag: &Address,
+        expected_err: Option<&str>
+    ) {
+        let tx = self.b_wrapper
+            .execute_tx(&self.owner, &self.c_wrapper, &rust_biguint!(0u64), |sc| {
+                sc.remove_referral_tag(managed_address!(tag));
+            });
+
+        if let Some(msg) = expected_err {
+            tx.assert_error(4, msg);
+            return
+        }
+
+        tx.assert_ok()
+    }
+
+    pub fn update_user_tier(
+        &mut self,
+        user: &Address,
+        expected_err: Option<&str>
+    ) {
+        let tx = self.b_wrapper
+            .execute_tx(user, &self.c_wrapper, &rust_biguint!(0u64), |sc| {
+                sc.update_user_tier();
+            });
+
+        if let Some(msg) = expected_err {
+            tx.assert_error(4, msg);
+            return
+        }
+
+        tx.assert_ok()
     }
 
     pub fn resume(&mut self) {

@@ -45,7 +45,7 @@ pub trait DustConverter:
 
     #[payable("*")]
     #[endpoint(swapDustTokens)]
-    fn swap_dust_tokens(&self, amount_out_min: BigUint) {
+    fn swap_dust_tokens(&self, amount_out_min: BigUint, tag: OptionalValue<ManagedBuffer>) {
         self.require_state_active();
 
         let payments = self.call_value().all_esdt_transfers();
@@ -66,12 +66,16 @@ pub trait DustConverter:
             total_amount += &value;
         }
 
-        let fee_amount = self.get_fee_from_input(&total_amount);
+        let mut fee_amount = self.get_fee_from_input(&total_amount);
         total_amount -= &fee_amount;
         require!(total_amount >= amount_out_min, "Slippage exceeded");
 
+        if let Some(tag_name) = tag.into_option() {
+            fee_amount = self.subtract_referral_fee_and_update_collected_fees(fee_amount, tag_name);
+        }
+
         let caller = self.blockchain().get_caller();
-        if &total_amount > &BigUint::zero() {
+        if total_amount > 0 {
             self.send().direct_esdt(&caller, &wrapped_egld, 0, &total_amount);
         }
         if !refund_payments.is_empty() {
@@ -98,11 +102,50 @@ pub trait DustConverter:
 
             let value = self.get_amount_out(pair.clone(), token.clone(), balance.clone());
             let threshold = self.token_threshold(&token).get();
-            if &value > &threshold {
+            if value > threshold {
                 let amount_out_min = self.get_amount_out_min(&value);
                 self.swap_tokens_fixed_input(pair, token, balance, wrapped_egld.clone(), amount_out_min);
             }
         }
+    }
+
+    #[endpoint(registerReferralTag)]
+    fn register_referral_tag(&self, tag: ManagedBuffer) {
+        self.require_state_active();
+
+        let caller = self.blockchain().get_caller();
+        require!(self.referral_tag_percent(&tag).is_empty(), "Tag already registered");
+        require!(self.user_tag_mapping(&caller).is_empty(), "User already owns a tag");
+
+        self.referral_tag_percent(&tag).set(config::DEFAULT_REFERRAL_PERCENTAGE);
+        self.user_tag_mapping(&caller).set(tag);
+    }
+
+    #[endpoint(claimReferralFees)]
+    fn claim_referral_fees(&self) {
+        self.require_state_active();
+        
+        let caller = self.blockchain().get_caller();
+        require!(!self.user_tag_mapping(&caller).is_empty(), "Not a tag owner");
+        let user_tag = self.user_tag_mapping(&caller).get();
+
+        let amount = self.collected_tag_fees(&user_tag).get();
+        require!(amount > 0, "No fees to claim");
+
+        self.send().direct_esdt(&caller, &self.wrapped_token().get(), 0, &amount);
+        self.collected_tag_fees(&user_tag).clear();
+    }
+
+    fn subtract_referral_fee_and_update_collected_fees(&self, fee_amount: BigUint, tag: ManagedBuffer) -> BigUint {
+        let tag_percentage = self.referral_tag_percent(&tag).get();
+        if tag_percentage == 0 {
+            return fee_amount;
+        }
+        
+        let referral_amount = &fee_amount * tag_percentage / MAX_PERCENTAGE;
+        self.collected_tag_fees(&tag).update(|x| *x += &referral_amount);
+
+        fee_amount - referral_amount
     }
 
     #[inline]
@@ -115,9 +158,8 @@ pub trait DustConverter:
         require!(!self.slippage_percent().is_empty(), "Slippage not set");
         let slippage = self.slippage_percent().get();
         let slippage_amount = amount_in * slippage / MAX_PERCENTAGE;
-        let amount_out_min = amount_in.sub(&slippage_amount);
 
-        amount_out_min
+        amount_in.sub(&slippage_amount)
     }
 
 }

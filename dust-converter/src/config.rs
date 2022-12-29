@@ -4,11 +4,12 @@ pub type AddKnownTokenType<M> = MultiValue3<TokenIdentifier<M>, ManagedAddress<M
 
 pub const MAX_PERCENTAGE: u64 = 10_000u64;
 pub const MAX_FEE_PERCENTAGE: u64 = 9_000u64;
+pub const DEFAULT_REFERRAL_PERCENTAGE: u64 = 500u64;
 
 #[elrond_wasm::module]
 pub trait ConfigModule:
     permissions_module::PermissionsModule
-    + pausable::PausableModule 
+    + pausable::PausableModule
 {
 
     #[payable("*")]
@@ -94,11 +95,55 @@ pub trait ConfigModule:
         self.all_tokens().set(&all_tokens_vec);
     }
 
-
     #[view(getAllTokens)]
     fn get_all_tokens(&self) -> MultiValueEncoded<TokenIdentifier> {
         self.all_tokens().get().into()
     }
+
+    #[endpoint(setReferralFeePercentage)]
+    fn set_referral_fee_percentage(&self, tag: ManagedBuffer, new_percentage: u64) {
+        self.require_caller_has_owner_or_admin_permissions();
+        require!(new_percentage < MAX_FEE_PERCENTAGE, "Invalid new percentage given");
+        require!(!self.referral_tag_percent(&tag).is_empty(), "Tag not found");
+        self.referral_tag_percent(&tag).set(new_percentage);
+    }
+
+    #[endpoint(removeReferralTag)]
+    fn remove_referral_tag(&self, user_address: ManagedAddress) {
+        self.require_caller_has_owner_or_admin_permissions();
+
+        let wrapped_egld = self.wrapped_token().get();
+        let tag = self.user_tag_mapping(&user_address).get();
+        let collected_amount = self.collected_tag_fees(&tag).get();
+        if collected_amount > 0 {
+            self.send().direct_esdt(&user_address, &wrapped_egld, 0, &collected_amount);
+        }
+
+        self.referral_tag_percent(&tag).clear();
+        self.collected_tag_fees(&tag).clear();
+        self.user_tag_mapping(&user_address).clear();
+    }
+
+    #[view(getCollectedFeeAmount)]
+    fn get_collected_fee_amount(
+        &self,
+        address: ManagedAddress
+    ) -> BigUint {
+        let tag_mapping = self.user_tag_mapping(&address);
+
+        self.collected_tag_fees(&tag_mapping.get()).get()
+    }
+
+    #[view(getReferralFeePercentage)]
+    #[storage_mapper("referral_tags_percent")]
+    fn referral_tag_percent(&self, tag: &ManagedBuffer) -> SingleValueMapper<u64>;
+
+    #[storage_mapper("collected_tag_fees")]
+    fn collected_tag_fees(&self, tag: &ManagedBuffer) -> SingleValueMapper<BigUint>;
+
+    #[view(getUserTag)]
+    #[storage_mapper("user_tag_mapping")]
+    fn user_tag_mapping(&self, user: &ManagedAddress) -> SingleValueMapper<ManagedBuffer>;
 
     #[storage_mapper("pair_contract")]
     fn pair_contract(&self, token_id: &TokenIdentifier) -> SingleValueMapper<ManagedAddress>;

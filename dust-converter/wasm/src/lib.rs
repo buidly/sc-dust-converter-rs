@@ -23,7 +23,6 @@ elrond_wasm_node::wasm_endpoints! {
         addKnownTokens
         removeKnownTokens
         getAllTokens
-        getUserTag
         getTokenThreshold
         getProtocolFeePercent
         getSlippagePercent
@@ -36,6 +35,7 @@ elrond_wasm_node::wasm_endpoints! {
         setReferralFeePercentage
         removeReferralTag
         getCollectedFeeAmount
+        getUserTag
         getReferralFeePercentage
         getTierDetails
         getTagAccumulatedVolume

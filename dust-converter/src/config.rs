@@ -99,10 +99,6 @@ pub trait ConfigModule:
         self.all_tokens().get().into()
     }
 
-    #[view(getUserTag)]
-    #[storage_mapper("user_tag_mapping")]
-    fn user_tag_mapping(&self, user: &ManagedAddress) -> SingleValueMapper<ManagedBuffer>;
-
     #[storage_mapper("pair_contract")]
     fn pair_contract(&self, token_id: &TokenIdentifier) -> SingleValueMapper<ManagedAddress>;
 

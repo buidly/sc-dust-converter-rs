@@ -1,5 +1,5 @@
 use elrond_wasm::{
-    types::{Address, MultiValueEncoded, BigUint, ManagedBuffer},
+    types::{Address, MultiValueEncoded, BigUint},
     elrond_codec::multi_types::{MultiValue3, OptionalValue}
 };
 use elrond_wasm_debug::{
@@ -25,7 +25,7 @@ pub const TIER_4_FEE_PERCENT: u64 = 2_500u64;
 
 use dust_converter::{
     DustConverter,
-    config::ConfigModule, referral::TierDetails
+    config::ConfigModule
 };
 use dust_converter::referral::ReferralModule;
 use pausable::PausableModule;
@@ -88,29 +88,26 @@ where
         b_wrapper
             .execute_tx(&owner, &contract_wrapper, &rust_zero, |sc| {
                 let mut multi = MultiValueEncoded::new();
-                multi.push(TierDetails {
-                    name: ManagedBuffer::from("Bronze"),
-                    min_volume: BigUint::from(TIER_1_MIN_VOLUME),
-                    fee_percent: TIER_1_FEE_PERCENT
-                });
-
-                multi.push(TierDetails {
-                    name: ManagedBuffer::from("Silver"),
-                    min_volume: BigUint::from(TIER_2_MIN_VOLUME),
-                    fee_percent: TIER_2_FEE_PERCENT
-                });
-
-                multi.push(TierDetails {
-                    name: ManagedBuffer::from("Gold"),
-                    min_volume: BigUint::from(TIER_3_MIN_VOLUME),
-                    fee_percent: TIER_3_FEE_PERCENT
-                });
-
-                multi.push(TierDetails {
-                    name: ManagedBuffer::from("Platinum"),
-                    min_volume: BigUint::from(TIER_4_MIN_VOLUME),
-                    fee_percent: TIER_4_FEE_PERCENT
-                });
+                multi.push(MultiValue3::from((
+                    managed_buffer!(b"Bronze"),
+                    BigUint::from(TIER_1_MIN_VOLUME),
+                    TIER_1_FEE_PERCENT
+                )));
+                multi.push(MultiValue3::from((
+                    managed_buffer!(b"Silver"),
+                    BigUint::from(TIER_2_MIN_VOLUME),
+                    TIER_2_FEE_PERCENT
+                )));
+                multi.push(MultiValue3::from((
+                    managed_buffer!(b"Gold"),
+                    BigUint::from(TIER_3_MIN_VOLUME),
+                    TIER_3_FEE_PERCENT
+                )));
+                multi.push(MultiValue3::from((
+                    managed_buffer!(b"Platinum"),
+                    BigUint::from(TIER_4_MIN_VOLUME),
+                    TIER_4_FEE_PERCENT
+                )));
                 
                 sc.add_tier_details(multi);
             })
@@ -192,11 +189,11 @@ where
         let tx = self.b_wrapper
             .execute_tx(&self.owner, &self.c_wrapper, &rust_biguint!(0u64), |sc| {
                 let mut multi = MultiValueEncoded::new();
-                multi.push(TierDetails {
-                    name: ManagedBuffer::from(tier_name),
-                    min_volume: BigUint::from(min_volume),
+                multi.push(MultiValue3::from((
+                    managed_buffer!(tier_name),
+                    BigUint::from(min_volume),
                     fee_percent
-                });
+                )));
                 sc.add_tier_details(multi);
             });
 

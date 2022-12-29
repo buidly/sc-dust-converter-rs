@@ -5,6 +5,8 @@ elrond_wasm::derive_imports!();
 
 pub const DEFAULT_REFERRAL_PERCENTAGE: u64 = 500u64;
 
+pub type TierDetailsArg<M> = MultiValue3<ManagedBuffer<M>, BigUint<M>, u64>;
+
 #[derive(TopEncode, TopDecode, NestedEncode, NestedDecode, TypeAbi, Clone, Debug, PartialEq)]
 pub struct TierDetails<M: ManagedTypeApi>  {
     pub name: ManagedBuffer<M>,
@@ -80,12 +82,17 @@ pub trait ReferralModule:
     }
 
     #[endpoint(addTierDetails)]
-    fn add_tier_details(&self, tiers: MultiValueEncoded<TierDetails<Self::Api>>) {
+    fn add_tier_details(&self, tiers: MultiValueEncoded<TierDetailsArg<Self::Api>>) {
         self.require_caller_has_owner_permissions();
 
         for tier in tiers.into_iter() {
-            require!(tier.fee_percent < MAX_FEE_PERCENTAGE, "Invalid fee percentage");
-            let is_new = self.tier_details().insert(tier);
+            let (name, min_volume, fee_percent) = tier.into_tuple();
+            require!(fee_percent < MAX_FEE_PERCENTAGE, "Invalid fee percentage");
+            let is_new = self.tier_details().insert(TierDetails { 
+                name, 
+                min_volume, 
+                fee_percent
+            });
     
             require!(is_new, "Tier already exists");
         }

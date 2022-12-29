@@ -25,7 +25,7 @@ pub const TIER_4_FEE_PERCENT: u64 = 2_500u64;
 
 use dust_converter::{
     DustConverter,
-    config::ConfigModule
+    config::ConfigModule, referral::TierDetails
 };
 use dust_converter::referral::ReferralModule;
 use pausable::PausableModule;
@@ -87,25 +87,32 @@ where
 
         b_wrapper
             .execute_tx(&owner, &contract_wrapper, &rust_zero, |sc| {
-                sc.add_tier_details(ManagedBuffer::from("Bronze"), BigUint::from(TIER_1_MIN_VOLUME), TIER_1_FEE_PERCENT);
-            })
-            .assert_ok();
+                let mut multi = MultiValueEncoded::new();
+                multi.push(TierDetails {
+                    name: ManagedBuffer::from("Bronze"),
+                    min_volume: BigUint::from(TIER_1_MIN_VOLUME),
+                    fee_percent: TIER_1_FEE_PERCENT
+                });
 
-        b_wrapper
-            .execute_tx(&owner, &contract_wrapper, &rust_zero, |sc| {
-                sc.add_tier_details(ManagedBuffer::from("Silver"), BigUint::from(TIER_2_MIN_VOLUME), TIER_2_FEE_PERCENT);
-            })
-            .assert_ok();
+                multi.push(TierDetails {
+                    name: ManagedBuffer::from("Silver"),
+                    min_volume: BigUint::from(TIER_2_MIN_VOLUME),
+                    fee_percent: TIER_2_FEE_PERCENT
+                });
 
-        b_wrapper
-            .execute_tx(&owner, &contract_wrapper, &rust_zero, |sc| {
-                sc.add_tier_details(ManagedBuffer::from("Gold"), BigUint::from(TIER_3_MIN_VOLUME), TIER_3_FEE_PERCENT);
-            })
-            .assert_ok();
+                multi.push(TierDetails {
+                    name: ManagedBuffer::from("Gold"),
+                    min_volume: BigUint::from(TIER_3_MIN_VOLUME),
+                    fee_percent: TIER_3_FEE_PERCENT
+                });
 
-        b_wrapper
-            .execute_tx(&owner, &contract_wrapper, &rust_zero, |sc| {
-                sc.add_tier_details(ManagedBuffer::from("Platinum"), BigUint::from(TIER_4_MIN_VOLUME), TIER_4_FEE_PERCENT);
+                multi.push(TierDetails {
+                    name: ManagedBuffer::from("Platinum"),
+                    min_volume: BigUint::from(TIER_4_MIN_VOLUME),
+                    fee_percent: TIER_4_FEE_PERCENT
+                });
+                
+                sc.add_tier_details(multi);
             })
             .assert_ok();
 
@@ -184,7 +191,13 @@ where
     ) {
         let tx = self.b_wrapper
             .execute_tx(&self.owner, &self.c_wrapper, &rust_biguint!(0u64), |sc| {
-                sc.add_tier_details(managed_buffer!(tier_name), managed_biguint!(min_volume), fee_percent);
+                let mut multi = MultiValueEncoded::new();
+                multi.push(TierDetails {
+                    name: ManagedBuffer::from(tier_name),
+                    min_volume: BigUint::from(min_volume),
+                    fee_percent
+                });
+                sc.add_tier_details(multi);
             });
 
         if let Some(msg) = expected_err {
@@ -231,14 +244,14 @@ where
         tx.assert_ok()
     }
 
-    pub fn update_user_tier(
+    pub fn update_tier(
         &mut self,
         user: &Address,
         expected_err: Option<&str>
     ) {
         let tx = self.b_wrapper
             .execute_tx(user, &self.c_wrapper, &rust_biguint!(0u64), |sc| {
-                sc.update_user_tier();
+                sc.update_tier();
             });
 
         if let Some(msg) = expected_err {

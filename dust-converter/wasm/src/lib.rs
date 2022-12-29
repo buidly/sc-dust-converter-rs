@@ -30,7 +30,7 @@ elrond_wasm_node::wasm_endpoints! {
         getWrappedTokenId
         registerReferralTag
         claimReferralFees
-        updateUserTier
+        updateTier
         addTierDetails
         removeTierDetails
         setReferralFeePercentage

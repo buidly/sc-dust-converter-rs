@@ -5,7 +5,7 @@ elrond_wasm::derive_imports!();
 
 pub const DEFAULT_REFERRAL_PERCENTAGE: u64 = 500u64;
 
-#[derive(TopEncode, TopDecode, NestedEncode, NestedDecode, TypeAbi, Clone, Debug)]
+#[derive(TopEncode, TopDecode, NestedEncode, NestedDecode, TypeAbi, Clone, Debug, PartialEq)]
 pub struct TierDetails<M: ManagedTypeApi>  {
     pub name: ManagedBuffer<M>,
     pub min_volume: BigUint<M>,
@@ -54,8 +54,8 @@ pub trait ReferralModule:
         self.collected_tag_fees(&user_tag).clear();
     }
 
-    #[endpoint(updateUserTier)]
-    fn update_user_tier(&self) -> ManagedBuffer {
+    #[endpoint(updateTier)]
+    fn update_tier(&self) -> ManagedBuffer {
         self.require_state_active();
 
         let caller = self.blockchain().get_caller();
@@ -80,16 +80,15 @@ pub trait ReferralModule:
     }
 
     #[endpoint(addTierDetails)]
-    fn add_tier_details(&self, name: ManagedBuffer, min_volume: BigUint, fee_percent: u64) {
+    fn add_tier_details(&self, tiers: MultiValueEncoded<TierDetails<Self::Api>>) {
         self.require_caller_has_owner_permissions();
-        require!(fee_percent < MAX_FEE_PERCENTAGE, "Invalid fee percentage");
-        let is_new = self.tier_details().insert(TierDetails {
-            name,
-            min_volume,
-            fee_percent,
-        });
 
-        require!(is_new, "Tier already exists");
+        for tier in tiers.into_iter() {
+            require!(tier.fee_percent < MAX_FEE_PERCENTAGE, "Invalid fee percentage");
+            let is_new = self.tier_details().insert(tier);
+    
+            require!(is_new, "Tier already exists");
+        }
     }
 
 
@@ -155,6 +154,9 @@ pub trait ReferralModule:
 
         fee_amount - referral_amount
     }
+
+    #[storage_mapper("collected_tag_fees")]
+    fn collected_tag_fees(&self, tag: &ManagedBuffer) -> SingleValueMapper<BigUint>;
 
     #[view(getReferralFeePercentage)]
     #[storage_mapper("referral_tags_percent")]

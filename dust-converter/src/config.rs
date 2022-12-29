@@ -99,9 +99,6 @@ pub trait ConfigModule:
         self.all_tokens().get().into()
     }
 
-    #[storage_mapper("collected_tag_fees")]
-    fn collected_tag_fees(&self, tag: &ManagedBuffer) -> SingleValueMapper<BigUint>;
-
     #[view(getUserTag)]
     #[storage_mapper("user_tag_mapping")]
     fn user_tag_mapping(&self, user: &ManagedAddress) -> SingleValueMapper<ManagedBuffer>;

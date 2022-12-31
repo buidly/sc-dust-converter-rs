@@ -31,6 +31,7 @@ pub trait ReferralModule:
         require!(!self.tier_details().is_empty(), "Tiers not set");
         
         self.user_tag_mapping(&caller).set(tag.clone());
+        self.accumulated_volume(&tag).clear();
 
         for tier in self.tier_details().iter() {
             if tier.min_volume == BigUint::zero() {

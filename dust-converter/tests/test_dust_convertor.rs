@@ -1,6 +1,6 @@
 mod contract_interactions;
 use contract_interactions::*;
-use dust_converter::{self, config::{MAX_PERCENTAGE, DEFAULT_REFERRAL_PERCENTAGE}};
+use dust_converter::{self, config::{MAX_PERCENTAGE}};
 use elrond_wasm_debug::{rust_biguint, tx_mock::TxTokenTransfer};
 use pair_mock::{self, ERR_TOKEN, AMOUNT_OUT};
 
@@ -159,6 +159,7 @@ fn test_register_referral_tag() {
     let tag = "TEST5".to_string();
     setup.register_referral_tag(&user, tag.as_bytes());
     setup.check_registered_tags(tag.as_bytes(), &user);
+    setup.check_referral_fee_percentage(TIER_1_FEE_PERCENT, tag.as_bytes());
 }
 
 #[test]
@@ -204,9 +205,99 @@ fn test_swap_token_with_referral_tag() {
     ];
 
     let amount_out = AMOUNT_OUT * 2u64;
-    let fee = amount_out * 500u64 / MAX_PERCENTAGE;
-    let referral_fee = fee * DEFAULT_REFERRAL_PERCENTAGE / MAX_PERCENTAGE;
+    let fee = amount_out * TIER_1_FEE_PERCENT / MAX_PERCENTAGE;
+    let referral_fee = fee * TIER_1_FEE_PERCENT / MAX_PERCENTAGE;
     let total = amount_out - fee;
     setup.swap_dust_token(&payments, &user_2, total, None, Some(tag));
     setup.check_referral_fee_amount(tag, referral_fee);
+
+    setup.remove_referral_tag(&user_1, None);
+    setup.b_wrapper.check_esdt_balance(&user_1, WRAPPED_TOKEN, &rust_biguint!(referral_fee));
+}
+
+#[test]
+fn test_accumulate_volume_and_update_tier() {
+    let known_token_amount = 3_000_000u64;
+    let unkown_token_amount = 2_500_000u64;
+    let tag = b"TEST5";
+
+    let mut setup = DustConvertorSetup::new(dust_converter::contract_obj, WRAPPED_TOKEN, pair_mock::contract_obj);
+    setup.add_known_tokens(vec![KNOWN_TOKEN_1, KNOWN_TOKEN_2]);
+    setup.resume();
+    let user_1 = setup.b_wrapper.create_user_account(&rust_biguint!(0u64));
+    setup.register_referral_tag(&user_1, tag);
+
+    let user_2 = setup.b_wrapper.create_user_account(&rust_biguint!(0u64));
+    setup.b_wrapper.set_esdt_balance(&user_2, KNOWN_TOKEN_1, &rust_biguint!(known_token_amount));
+    setup.b_wrapper.set_esdt_balance(&user_2, KNOWN_TOKEN_2, &rust_biguint!(unkown_token_amount));
+    let payments = [
+        TxTokenTransfer {
+            token_identifier: KNOWN_TOKEN_1.to_vec(),
+            nonce: 0,
+            value: rust_biguint!(known_token_amount / 5)
+        },
+        TxTokenTransfer {
+            token_identifier: KNOWN_TOKEN_2.to_vec(),
+            nonce: 0,
+            value: rust_biguint!(unkown_token_amount / 5)
+        }
+    ];
+
+    let amount_out = AMOUNT_OUT * 2u64;
+    let fee = amount_out * TIER_1_FEE_PERCENT / MAX_PERCENTAGE;
+    let total = amount_out - fee;
+    setup.swap_dust_token(&payments, &user_2, total, None, Some(tag));
+    setup.swap_dust_token(&payments, &user_2, total, None, Some(tag));
+    setup.swap_dust_token(&payments, &user_2, total, None, Some(tag));
+
+    let referral_fee = fee * 3 * TIER_1_FEE_PERCENT / MAX_PERCENTAGE;
+    setup.check_referral_fee_amount(tag, referral_fee);
+
+    setup.update_tier(&user_1, None);
+}
+
+#[test]
+fn test_tier_with_0_fee() {
+    let mut setup = DustConvertorSetup::new(dust_converter::contract_obj, WRAPPED_TOKEN, pair_mock::contract_obj);
+    setup.add_known_tokens(vec![KNOWN_TOKEN_1, KNOWN_TOKEN_2]);
+    setup.resume();
+
+    setup.add_tier_details(b"Bronze", 0u64, 500u64, Some("Tier already exists"));
+    setup.remove_tier_details(b"Bronze", None);
+
+    setup.add_tier_details(b"Bronze", 2_000_000_000u64, TIER_1_FEE_PERCENT, None);
+    setup.add_tier_details(b"Wood", 0u64, 0u64, None);
+
+    let user_1 = setup.b_wrapper.create_user_account(&rust_biguint!(0u64));
+    let tag = "TEST5".to_string();
+    setup.register_referral_tag(&user_1, tag.as_bytes());
+
+    setup.check_referral_fee_percentage(0u64, tag.as_bytes());
+
+    let token_amount = 3_000_000u64;
+    let user_2 = setup.b_wrapper.create_user_account(&rust_biguint!(0u64));
+    setup.b_wrapper.set_esdt_balance(&user_2, KNOWN_TOKEN_1, &rust_biguint!(token_amount));
+    setup.b_wrapper.set_esdt_balance(&user_2, KNOWN_TOKEN_2, &rust_biguint!(token_amount));
+    let payments = [
+        TxTokenTransfer {
+            token_identifier: KNOWN_TOKEN_1.to_vec(),
+            nonce: 0,
+            value: rust_biguint!(token_amount)
+        },
+        TxTokenTransfer {
+            token_identifier: KNOWN_TOKEN_2.to_vec(),
+            nonce: 0,
+            value: rust_biguint!(token_amount)
+        }
+    ];
+
+    let amount_out = AMOUNT_OUT * 2u64;
+    let fee = amount_out * TIER_1_FEE_PERCENT / MAX_PERCENTAGE;
+    let total = amount_out - fee;
+    setup.swap_dust_token(&payments, &user_2, total, None, Some(tag.as_bytes()));
+
+    setup.check_referral_fee_amount(tag.as_bytes(), 0u64);
+
+    setup.update_tier(&user_1, None);
+    setup.check_referral_fee_percentage(TIER_1_FEE_PERCENT, tag.as_bytes());
 }

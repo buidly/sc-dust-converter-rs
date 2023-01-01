@@ -6,6 +6,7 @@ elrond_wasm::imports!();
 
 pub mod config;
 pub mod proxy;
+pub mod referral;
 use pausable::State;
 use permissions_module::Permissions;
 
@@ -13,6 +14,7 @@ use permissions_module::Permissions;
 pub trait DustConverter:
     config::ConfigModule
     + proxy::ProxyModule
+    + referral::ReferralModule
     + permissions_module::PermissionsModule
     + pausable::PausableModule
 {
@@ -67,16 +69,17 @@ pub trait DustConverter:
         }
 
         let mut fee_amount = self.get_fee_from_input(&total_amount);
-        total_amount -= &fee_amount;
-        require!(total_amount >= amount_out_min, "Slippage exceeded");
+        let amount_after_fees = &total_amount - &fee_amount;
+        require!(amount_after_fees >= amount_out_min, "Slippage exceeded");
 
         if let Some(tag_name) = tag.into_option() {
+            self.accumulated_volume(&tag_name).update(|x| *x += total_amount);
             fee_amount = self.subtract_referral_fee_and_update_collected_fees(fee_amount, tag_name);
         }
 
         let caller = self.blockchain().get_caller();
-        if total_amount > 0 {
-            self.send().direct_esdt(&caller, &wrapped_egld, 0, &total_amount);
+        if amount_after_fees > 0 {
+            self.send().direct_esdt(&caller, &wrapped_egld, 0, &amount_after_fees);
         }
         if !refund_payments.is_empty() {
             self.send().direct_multi(&caller, &refund_payments);
@@ -107,45 +110,6 @@ pub trait DustConverter:
                 self.swap_tokens_fixed_input(pair, token, balance, wrapped_egld.clone(), amount_out_min);
             }
         }
-    }
-
-    #[endpoint(registerReferralTag)]
-    fn register_referral_tag(&self, tag: ManagedBuffer) {
-        self.require_state_active();
-
-        let caller = self.blockchain().get_caller();
-        require!(self.referral_tag_percent(&tag).is_empty(), "Tag already registered");
-        require!(self.user_tag_mapping(&caller).is_empty(), "User already owns a tag");
-
-        self.referral_tag_percent(&tag).set(config::DEFAULT_REFERRAL_PERCENTAGE);
-        self.user_tag_mapping(&caller).set(tag);
-    }
-
-    #[endpoint(claimReferralFees)]
-    fn claim_referral_fees(&self) {
-        self.require_state_active();
-        
-        let caller = self.blockchain().get_caller();
-        require!(!self.user_tag_mapping(&caller).is_empty(), "Not a tag owner");
-        let user_tag = self.user_tag_mapping(&caller).get();
-
-        let amount = self.collected_tag_fees(&user_tag).get();
-        require!(amount > 0, "No fees to claim");
-
-        self.send().direct_esdt(&caller, &self.wrapped_token().get(), 0, &amount);
-        self.collected_tag_fees(&user_tag).clear();
-    }
-
-    fn subtract_referral_fee_and_update_collected_fees(&self, fee_amount: BigUint, tag: ManagedBuffer) -> BigUint {
-        let tag_percentage = self.referral_tag_percent(&tag).get();
-        if tag_percentage == 0 {
-            return fee_amount;
-        }
-        
-        let referral_amount = &fee_amount * tag_percentage / MAX_PERCENTAGE;
-        self.collected_tag_fees(&tag).update(|x| *x += &referral_amount);
-
-        fee_amount - referral_amount
     }
 
     #[inline]

@@ -90,7 +90,7 @@ sellDustTokens() {
         --function=sellDustTokens \
         --send || return
 }
-# source interaction.snippets.sh && registerReferralTag alexj17
+# source interaction.snippets.sh && registerReferralTag alexj172
 registerReferralTag() {
     tag="0x$(echo -n $1 | xxd -p -u | tr -d '\n')"
     erdpy --verbose contract call ${DUST_CONVERTER_ADDRESS} --recall-nonce \
@@ -99,5 +99,30 @@ registerReferralTag() {
         --gas-limit=30000000 \
         --function=registerReferralTag \
         --arguments $tag \
+        --send || return
+}
+
+# . ./interaction.snippets.sh && addTierDetails Bronze 0x00 500 Silver 0x06f05b59d3b20000 1000 Gold 0x0a688906bd8b0000 2000
+# . ./interaction.snippets.sh && addTierDetails Silver 0x06f05b59d3b20000 1000
+# . ./interaction.snippets.sh && addTierDetails Gold 0x0a688906bd8b0000 2000
+# . ./interaction.snippets.sh && addTierDetails Platinum 0x0de0b6b3a7640000 3000
+addTierDetails() {
+    erdpy --verbose contract call ${DUST_CONVERTER_ADDRESS} --recall-nonce \
+        --pem=${WALLET_PEM} \
+        --proxy=${PROXY} --chain=${CHAIN_ID} \
+        --gas-limit=10000000 \
+        --function=addTierDetails \
+        --arguments str:$1 $2 $3 \
+        --send || return
+}
+
+# . ./interaction.snippets.sh && removeTierDetails Silver 
+removeTierDetails() {
+    erdpy --verbose contract call ${DUST_CONVERTER_ADDRESS} --recall-nonce \
+        --pem=${WALLET_PEM} \
+        --proxy=${PROXY} --chain=${CHAIN_ID} \
+        --gas-limit=10000000 \
+        --function=removeTierDetails \
+        --arguments str:$1 \
         --send || return
 }

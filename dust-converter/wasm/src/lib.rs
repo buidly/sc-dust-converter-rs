@@ -5,9 +5,9 @@
 ////////////////////////////////////////////////////
 
 // Init:                                 1
-// Endpoints:                           29
+// Endpoints:                           34
 // Async Callback (empty):               1
-// Total number of exported functions:  31
+// Total number of exported functions:  36
 
 #![no_std]
 
@@ -16,8 +16,6 @@ elrond_wasm_node::wasm_endpoints! {
     (
         swapDustTokens
         sellDustTokens
-        registerReferralTag
-        claimReferralFees
         topUp
         extractFees
         setFeePercentage
@@ -25,15 +23,22 @@ elrond_wasm_node::wasm_endpoints! {
         addKnownTokens
         removeKnownTokens
         getAllTokens
-        setReferralFeePercentage
-        removeReferralTag
-        getCollectedFeeAmount
-        getReferralFeePercentage
-        getUserTag
         getTokenThreshold
         getProtocolFeePercent
         getSlippagePercent
         getWrappedTokenId
+        registerReferralTag
+        claimReferralFees
+        updateTier
+        addTierDetails
+        removeTierDetails
+        setReferralFeePercentage
+        removeReferralTag
+        getCollectedFeeAmount
+        getUserTag
+        getReferralFeePercentage
+        getTierDetails
+        getTagAccumulatedVolume
         addAdmin
         removeAdmin
         updateOwnerOrAdmin

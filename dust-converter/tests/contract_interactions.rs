@@ -47,7 +47,7 @@ where
     DustBuilder: 'static + Copy + Fn() -> dust_converter::ContractObj<DebugApi>,
     MockBuilder: 'static + Copy + Fn() -> pair_mock::ContractObj<DebugApi>,
 {
-    pub fn new(dust_builder: DustBuilder, wrapped_token: &[u8], pair_builder: MockBuilder) -> Self {
+    pub fn new(dust_builder: DustBuilder, wrapped_token: &[u8], usdc_token:&[u8], pair_builder: MockBuilder) -> Self {
         let rust_zero = rust_biguint!(0);
         let initial_sc_balance = rust_biguint!(10_000_000_000_000_000_000u64);
         let mut b_wrapper = BlockchainStateWrapper::new();
@@ -74,7 +74,8 @@ where
                 sc.init(
                     500u64,
                     50u64,
-                    managed_token_id!(wrapped_token)
+                    managed_token_id!(wrapped_token),
+                    managed_token_id!(usdc_token)
                 );
             })
             .assert_ok();
@@ -121,7 +122,7 @@ where
         }
     }
 
-    pub fn add_known_tokens(&mut self, known_tokens: Vec<&[u8]>) {
+    pub fn add_known_tokens(&mut self, output_token: &[u8], known_tokens: Vec<&[u8]>) {
         let p_wrapper = self.pair_wrapper.address_ref();
         self.b_wrapper
             .execute_tx(&self.owner, &self.c_wrapper, &rust_biguint!(0u64), |sc| {
@@ -136,7 +137,7 @@ where
                     );
 
                 }
-                sc.add_known_tokens(payload_tokens);
+                sc.add_known_tokens(managed_token_id!(output_token), payload_tokens);
             })
             .assert_ok();
     }
@@ -145,6 +146,7 @@ where
         &mut self,
         payments: &[TxTokenTransfer],
         caller: &Address,
+        num_wegld: usize,
         min_out_amount: u64,
         expected_err: Option<&str>,
         referral_tag: Option<&[u8]>
@@ -155,7 +157,7 @@ where
                     Some(tag) => OptionalValue::Some(managed_buffer!(tag)),
                     None => OptionalValue::None
                 };
-                sc.swap_dust_tokens(managed_biguint!(min_out_amount), referral_tag_wrapped);
+                sc.swap_dust_tokens(num_wegld, managed_biguint!(min_out_amount), referral_tag_wrapped);
             });
 
         if let Some(msg) = expected_err {

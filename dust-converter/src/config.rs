@@ -1,6 +1,13 @@
 elrond_wasm::imports!();
+elrond_wasm::derive_imports!();
 
 pub type AddKnownTokenType<M> = MultiValue3<TokenIdentifier<M>, ManagedAddress<M>, BigUint<M>>;
+
+#[derive(TopEncode, TopDecode, NestedEncode, NestedDecode, TypeAbi, Clone, PartialEq, Debug)]
+pub struct PairContractData<M: ManagedTypeApi> {
+    pub address: ManagedAddress<M>,
+    pub output_token: TokenIdentifier<M>,
+}
 
 pub const MAX_PERCENTAGE: u64 = 10_000u64;
 pub const MAX_FEE_PERCENTAGE: u64 = 9_000u64;
@@ -48,10 +55,10 @@ pub trait ConfigModule:
     }
 
     #[endpoint(addKnownTokens)]
-    fn add_known_tokens(&self, known_tokens: MultiValueEncoded<AddKnownTokenType<Self::Api>>) {
+    fn add_known_tokens(&self, output_token: TokenIdentifier, known_tokens: MultiValueEncoded<AddKnownTokenType<Self::Api>>) {
         self.require_caller_has_owner_or_admin_permissions();
 
-        let mut all_tokens_vec = self.all_tokens().get();
+        let mut all_tokens_vec = self.all_tokens(&output_token).get();
         let known_tokens_mapper = self.known_tokens();
         for entry in known_tokens {
             let (token, sc_address, min_amount) = entry.into_tuple();
@@ -65,18 +72,21 @@ pub trait ConfigModule:
 
                 known_tokens_mapper.add(&token);
                 all_tokens_vec.push(token.clone());
-                self.pair_contract(&token).set(sc_address);
+                self.pair_contract(&token).set(PairContractData {
+                    address: sc_address,
+                    output_token: output_token.clone(),
+                });
                 self.token_threshold(&token).set(min_amount);
             }
         }
-        self.all_tokens().set(all_tokens_vec);
+        self.all_tokens(&output_token).set(all_tokens_vec);
     }
 
     #[endpoint(removeKnownTokens)]
-    fn remove_known_tokens(&self, tokens: MultiValueEncoded<TokenIdentifier>) {
+    fn remove_known_tokens(&self, output_token: TokenIdentifier, tokens: MultiValueEncoded<TokenIdentifier>) {
         self.require_caller_has_owner_or_admin_permissions();
 
-        let mut all_tokens_vec = self.all_tokens().get();
+        let mut all_tokens_vec = self.all_tokens(&output_token).get();
         let known_tokens_mapper = self.known_tokens();
         for token in tokens {
             if known_tokens_mapper.contains(&token) {
@@ -91,16 +101,16 @@ pub trait ConfigModule:
                 self.token_threshold(&token).clear();
             }
         }
-        self.all_tokens().set(&all_tokens_vec);
+        self.all_tokens(&output_token).set(&all_tokens_vec);
     }
 
     #[view(getAllTokens)]
-    fn get_all_tokens(&self) -> MultiValueEncoded<TokenIdentifier> {
-        self.all_tokens().get().into()
+    fn get_all_tokens(&self, output_token: TokenIdentifier) -> MultiValueEncoded<TokenIdentifier> {
+        self.all_tokens(&output_token).get().into()
     }
 
     #[storage_mapper("pair_contract")]
-    fn pair_contract(&self, token_id: &TokenIdentifier) -> SingleValueMapper<ManagedAddress>;
+    fn pair_contract(&self, token_id: &TokenIdentifier) -> SingleValueMapper<PairContractData<Self::Api>>;
 
     #[view(getTokenThreshold)]
     #[storage_mapper("token_threshold")]
@@ -110,7 +120,7 @@ pub trait ConfigModule:
     fn known_tokens(&self) -> WhitelistMapper<Self::Api, TokenIdentifier>;
 
     #[storage_mapper("all_tokens")]
-    fn all_tokens(&self) -> SingleValueMapper<ManagedVec<TokenIdentifier>>;
+    fn all_tokens(&self, output_token: &TokenIdentifier) -> SingleValueMapper<ManagedVec<TokenIdentifier>>;
 
     #[view(getProtocolFeePercent)]
     #[storage_mapper("protocol_fee_percent")]
@@ -123,6 +133,10 @@ pub trait ConfigModule:
     #[view(getWrappedTokenId)]
     #[storage_mapper("wrapped_token_id")]
     fn wrapped_token(&self) -> SingleValueMapper<TokenIdentifier>;
+
+    #[view(getUsdcTokenId)]
+    #[storage_mapper("usdc_token_id")]
+    fn usdc_token(&self) -> SingleValueMapper<TokenIdentifier>;
 
     #[storage_mapper("collected_fee_amount")]
     fn collected_fee_amount(&self) -> SingleValueMapper<BigUint>;

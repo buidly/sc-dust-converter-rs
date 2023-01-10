@@ -72,7 +72,7 @@ pub trait DustConverter:
             }
 
             let pair = self.pair_contract(&p.token_identifier).get();
-            require!(&pair.output_token == &output_token, "Invalid payments");
+            require!(pair.output_token == output_token, "Invalid payments");
 
             let value = self.get_amount_out(pair.address, p.token_identifier, p.amount);
             total_amount += value;

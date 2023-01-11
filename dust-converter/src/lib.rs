@@ -24,7 +24,7 @@ pub trait DustConverter:
         &self, 
         protocol_fee_percent: u64, 
         slippage_percent: u64, 
-        wrapped_token: TokenIdentifier,
+        wegld_token: TokenIdentifier,
         usdc_token: TokenIdentifier
     ) {
         require!(
@@ -40,10 +40,10 @@ pub trait DustConverter:
         self.slippage_percent().set(slippage_percent);
 
         require!(
-            wrapped_token.is_valid_esdt_identifier(),
+            wegld_token.is_valid_esdt_identifier(),
             "Not a valid esdt id"
         );
-        self.wrapped_token().set_if_empty(wrapped_token);
+        self.wrapped_token().set_if_empty(wegld_token);
         self.usdc_token().set_if_empty(usdc_token);
         self.collected_fee_amount().set_if_empty(BigUint::zero());
         self.state().set(State::Inactive);
@@ -89,16 +89,18 @@ pub trait DustConverter:
         let usdc_token = self.usdc_token().get();
         if payments.is_empty() {
             payments.push(EsdtTokenPayment::new(usdc_token, 0, amount));
-        } else {
-            let first_payment = payments.get(0);
-            if first_payment.token_identifier == usdc_token {
-                let result = payments.set(0, &EsdtTokenPayment::new(usdc_token.clone(), 0, first_payment.amount + amount.clone()));
-                if result.is_err() {
-                    payments.push(EsdtTokenPayment::new(usdc_token, 0, amount));
-                }
-            } else {
-                payments.push(EsdtTokenPayment::new(usdc_token, 0, amount));
-            }
+            return;
+        } 
+
+        let first_payment = payments.get(0);
+        if first_payment.token_identifier != usdc_token {
+            payments.push(EsdtTokenPayment::new(usdc_token, 0, amount));
+            return;
+        }
+
+        let result = payments.set(0, &EsdtTokenPayment::new(usdc_token.clone(), 0, first_payment.amount + amount.clone()));
+        if result.is_err() {
+            payments.push(EsdtTokenPayment::new(usdc_token, 0, amount));
         }
     }
 
@@ -133,9 +135,9 @@ pub trait DustConverter:
         }
 
         let caller = self.blockchain().get_caller();
-        if amount_after_fees > 0 {
-            self.send().direct_esdt(&caller, &wrapped_egld, 0, &amount_after_fees);
-        }
+        require!(amount_after_fees > 0, "Zero amount cannot be claimed");
+        
+        self.send().direct_esdt(&caller, &wrapped_egld, 0, &amount_after_fees);
 
         wegld_refund.extend(&usdc_refund);
         if !wegld_refund.is_empty() {

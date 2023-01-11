@@ -2,15 +2,10 @@ mod contract_interactions;
 use contract_interactions::*;
 use dust_converter::{self, config::{MAX_PERCENTAGE}};
 use elrond_wasm_debug::{rust_biguint, tx_mock::TxTokenTransfer};
-use pair_mock::{self, ERR_TOKEN, AMOUNT_OUT};
+use pair_mock::{self, ERR_TOKEN, AMOUNT_OUT, KNOWN_TOKEN_1, KNOWN_TOKEN_2, KNOWN_TOKEN_3, KNOWN_TOKEN_4, KNOWN_TOKEN_5};
 
 static WRAPPED_TOKEN: &[u8] = b"WEGLD-0a3f5r";
 static USDC_TOKEN: &[u8] = b"USDC-0a3f5r";
-pub const KNOWN_TOKEN_1: &[u8] = b"USDC-0a3f5r";
-pub const KNOWN_TOKEN_2: &[u8] = b"ASH-12345a";
-pub const KNOWN_TOKEN_3: &[u8] = b"RIDE-12345a";
-pub const KNOWN_TOKEN_4: &[u8] = b"RARE-12345a";
-pub const KNOWN_TOKEN_5: &[u8] = b"LPAD-12345a";
 pub const UNKOWN_TOKEN_3: &[u8] = b"UKN-1sy8n4";
 
 pub const TOKEN_1_RATE_PERCENTAGE: u64 = 400; //   1000 TOKEN1 = 40 TOKEN_OUT
@@ -169,6 +164,71 @@ fn test_swap_dust_tokens_usdc_wegld_success () {
     setup.swap_dust_token(&payments, &caller_address, 3, total, None, None);
 
     setup.b_wrapper.check_esdt_balance(&setup.owner, KNOWN_TOKEN_1, &rust_biguint!(0u64));
+    setup.b_wrapper.check_esdt_balance(&setup.owner, KNOWN_TOKEN_2, &rust_biguint!(0u64));
+    setup.b_wrapper.check_esdt_balance(&setup.owner, KNOWN_TOKEN_3, &rust_biguint!(0u64));
+    setup.b_wrapper.check_esdt_balance(&setup.owner, KNOWN_TOKEN_4, &rust_biguint!(0u64));
+    setup.b_wrapper.check_esdt_balance(&setup.owner, KNOWN_TOKEN_5, &rust_biguint!(0u64));
+
+    setup.b_wrapper.check_esdt_balance(&setup.owner, WRAPPED_TOKEN, &rust_biguint!(total));
+
+}
+
+#[test]
+fn test_swap_dust_tokens_usdc_wegld_refund_tokens () {
+    let unknown_token_amount = 3000000u64;
+    let token_2_amount = 3000000u64;
+    let token_3_amount = 4000000u64;
+    let token_4_amount = 5000000u64;
+    let token_5_amount = 5000000u64;
+    let mut setup = DustConvertorSetup::new(dust_converter::contract_obj, WRAPPED_TOKEN, USDC_TOKEN, pair_mock::contract_obj);
+    setup.add_known_tokens(WRAPPED_TOKEN, vec![KNOWN_TOKEN_1, KNOWN_TOKEN_2, KNOWN_TOKEN_3]);
+    setup.add_known_tokens(USDC_TOKEN, vec![KNOWN_TOKEN_4, KNOWN_TOKEN_5]);
+    setup.resume();
+
+    setup.b_wrapper.set_esdt_balance(&setup.owner, UNKOWN_TOKEN_3, &rust_biguint!(unknown_token_amount));
+    setup.b_wrapper.set_esdt_balance(&setup.owner, KNOWN_TOKEN_2, &rust_biguint!(token_2_amount));
+    setup.b_wrapper.set_esdt_balance(&setup.owner, KNOWN_TOKEN_3, &rust_biguint!(token_3_amount));
+    setup.b_wrapper.set_esdt_balance(&setup.owner, KNOWN_TOKEN_4, &rust_biguint!(token_4_amount));
+    setup.b_wrapper.set_esdt_balance(&setup.owner, KNOWN_TOKEN_5, &rust_biguint!(token_5_amount));
+
+    let payments = [
+        TxTokenTransfer {
+            token_identifier: UNKOWN_TOKEN_3.to_vec(),
+            nonce: 0,
+            value: rust_biguint!(unknown_token_amount)
+        },
+        TxTokenTransfer {
+            token_identifier: KNOWN_TOKEN_2.to_vec(),
+            nonce: 0,
+            value: rust_biguint!(token_2_amount)
+        },
+        TxTokenTransfer {
+            token_identifier: KNOWN_TOKEN_3.to_vec(),
+            nonce: 0,
+            value: rust_biguint!(token_3_amount)
+        },
+        TxTokenTransfer {
+            token_identifier: KNOWN_TOKEN_4.to_vec(),
+            nonce: 0,
+            value: rust_biguint!(token_4_amount)
+        },
+        TxTokenTransfer {
+            token_identifier: KNOWN_TOKEN_5.to_vec(),
+            nonce: 0,
+            value: rust_biguint!(token_5_amount)
+        }
+    ];
+
+    let usdc_tokens_amount = compute_token_out_amount(token_4_amount, KNOWN_TOKEN_4) + compute_token_out_amount(token_5_amount, KNOWN_TOKEN_5);
+    let amount_out = compute_token_out_amount(usdc_tokens_amount, USDC_TOKEN) 
+        + compute_token_out_amount(token_2_amount, KNOWN_TOKEN_2) + compute_token_out_amount(token_3_amount, KNOWN_TOKEN_3);
+    let fee = amount_out * 500u64 / MAX_PERCENTAGE;
+    let total = amount_out - fee;
+
+    let caller_address = setup.owner.clone();
+    setup.swap_dust_token(&payments, &caller_address, 3, total, None, None);
+
+    setup.b_wrapper.check_esdt_balance(&setup.owner, UNKOWN_TOKEN_3, &rust_biguint!(unknown_token_amount));
     setup.b_wrapper.check_esdt_balance(&setup.owner, KNOWN_TOKEN_2, &rust_biguint!(0u64));
     setup.b_wrapper.check_esdt_balance(&setup.owner, KNOWN_TOKEN_3, &rust_biguint!(0u64));
     setup.b_wrapper.check_esdt_balance(&setup.owner, KNOWN_TOKEN_4, &rust_biguint!(0u64));

@@ -43,6 +43,10 @@ pub trait DustConverter:
             wegld_token.is_valid_esdt_identifier(),
             "Not a valid esdt id"
         );
+        require!(
+            usdc_token.is_valid_esdt_identifier(),
+            "Not a valid esdt id"
+        );
         self.wrapped_token().set_if_empty(wegld_token);
         self.usdc_token().set_if_empty(usdc_token);
         self.collected_fee_amount().set_if_empty(BigUint::zero());
@@ -116,8 +120,11 @@ pub trait DustConverter:
         self.require_state_active();
 
         let payments = self.call_value().all_esdt_transfers();
+        let num_payments = payments.len();
+        require!(num_wegld <= num_payments, "Invalid num_wegld");
+
         let mut wegld_swaps = payments.slice(0, num_wegld).unwrap_or_else(ManagedVec::new);
-        let usdc_swaps = payments.slice(num_wegld, payments.len()).unwrap_or_else(ManagedVec::new);
+        let usdc_swaps = payments.slice(num_wegld, num_payments).unwrap_or_else(ManagedVec::new);
 
         let (usdc_amount, usdc_refund) = self.compute_swap_amount(self.usdc_token().get(), &usdc_swaps);
         self.add_usdc_to_first_payment(&mut wegld_swaps, usdc_amount);

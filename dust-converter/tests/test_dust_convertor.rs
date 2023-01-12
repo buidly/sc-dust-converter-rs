@@ -501,3 +501,273 @@ fn test_remove_known_tokens() {
     setup.remove_known_tokens(USDC_TOKEN, vec![KNOWN_TOKEN_4, KNOWN_TOKEN_5]);
     setup.check_all_tokens(USDC_TOKEN, vec![]);
 }
+
+#[test]
+fn test_swap_dust_tokens_0_wegld_0_usdc() {
+    let mut setup = DustConvertorSetup::new(dust_converter::contract_obj, WRAPPED_TOKEN, USDC_TOKEN, pair_mock::contract_obj);
+    setup.add_known_tokens(WRAPPED_TOKEN, vec![KNOWN_TOKEN_1, KNOWN_TOKEN_2, KNOWN_TOKEN_3]);
+    setup.add_known_tokens(USDC_TOKEN, vec![KNOWN_TOKEN_4, KNOWN_TOKEN_5]);
+    setup.resume();
+
+    let user = setup.b_wrapper.create_user_account(&rust_biguint!(0u64));
+
+    let unknown_token_amount = 3000000u64;
+    setup.b_wrapper.set_esdt_balance(&user, UNKOWN_TOKEN_3, &rust_biguint!(unknown_token_amount));
+
+    let payments = [
+        TxTokenTransfer {
+            token_identifier: UNKOWN_TOKEN_3.to_vec(),
+            nonce: 0,
+            value: rust_biguint!(unknown_token_amount)
+        }
+    ];
+
+    // 0 wegld; 0 usdc; 1 unknown; num_wegld > 0 should fail
+    let num_wegld = 2;
+    setup.swap_dust_token(&payments, &user, num_wegld, 0, Some("Invalid num_wegld"), None);
+
+    setup.b_wrapper.check_esdt_balance(&user, WRAPPED_TOKEN, &rust_biguint!(0u64));
+    setup.b_wrapper.check_esdt_balance(&user, UNKOWN_TOKEN_3, &rust_biguint!(unknown_token_amount));
+
+    // 0 wegld; 0 usdc; 1 unknown; num_wegld = 0 should fail
+    let num_wegld = 0;
+    setup.swap_dust_token(&payments, &user, num_wegld, 0, Some("Zero amount cannot be claimed"), None);
+}
+
+#[test]
+fn test_swap_dust_tokens_1_token_wegld_or_usdc() {
+    let mut setup = DustConvertorSetup::new(dust_converter::contract_obj, WRAPPED_TOKEN, USDC_TOKEN, pair_mock::contract_obj);
+    setup.add_known_tokens(WRAPPED_TOKEN, vec![KNOWN_TOKEN_1, KNOWN_TOKEN_2, KNOWN_TOKEN_3]);
+    setup.add_known_tokens(USDC_TOKEN, vec![KNOWN_TOKEN_4, KNOWN_TOKEN_5]);
+    setup.resume();
+
+    let user = setup.b_wrapper.create_user_account(&rust_biguint!(0u64));
+
+    let known_token_1_amount = 3000000u64;
+    setup.b_wrapper.set_esdt_balance(&user, KNOWN_TOKEN_1, &rust_biguint!(known_token_1_amount));
+    let payments = [
+        TxTokenTransfer {
+            token_identifier: KNOWN_TOKEN_1.to_vec(),
+            nonce: 0,
+            value: rust_biguint!(known_token_1_amount)
+        }
+    ];
+    let amount_out = compute_token_out_amount(known_token_1_amount, KNOWN_TOKEN_1);
+    let protocol_fee = amount_out * 500u64 / MAX_PERCENTAGE;
+    let total = amount_out - protocol_fee;
+
+    // 1 wegld; 0 usdc; num_wegld > 0 should fail
+    let num_wegld = 2;
+    setup.swap_dust_token(&payments, &user, num_wegld, total, Some("Invalid num_wegld"), None);
+
+    // 1 wegld; 0 usdc; num_wegld = 0 should fail
+    let num_wegld = 0;
+    setup.swap_dust_token(&payments, &user, num_wegld, total, Some("Invalid payments"), None);
+
+    // 1 wegld; 0 usdc; num_wegld = 1 should pass
+    let num_wegld = 1;
+    setup.swap_dust_token(&payments, &user, num_wegld, total, None, None);
+    setup.b_wrapper.check_esdt_balance(&user, WRAPPED_TOKEN, &rust_biguint!(total));
+
+    setup.b_wrapper.set_esdt_balance(&user, WRAPPED_TOKEN, &rust_biguint!(0));
+
+    let known_token_4_amount = 3000000u64;
+    setup.b_wrapper.set_esdt_balance(&user, KNOWN_TOKEN_4, &rust_biguint!(known_token_4_amount));
+    let payments = [
+        TxTokenTransfer {
+            token_identifier: KNOWN_TOKEN_4.to_vec(),
+            nonce: 0,
+            value: rust_biguint!(known_token_4_amount)
+        }
+    ];
+    let usdc_amount_out = compute_token_out_amount(known_token_4_amount, KNOWN_TOKEN_4);
+    let amount_out = compute_token_out_amount(usdc_amount_out, USDC_TOKEN);
+    let protocol_fee = amount_out * 500u64 / MAX_PERCENTAGE;
+    let total = amount_out - protocol_fee;
+
+    // 0 wegld; 1 usdc; num_wegld > 0 should fail
+    let num_wegld = 2;
+    setup.swap_dust_token(&payments, &user, num_wegld, total, Some("Invalid num_wegld"), None);
+
+    // 0 wegld; 1 usdc; num_wegld = 1 should fail
+    let num_wegld = 1;
+    setup.swap_dust_token(&payments, &user, num_wegld, total, Some("Invalid payments"), None);
+
+    // 0 wegld; 1 usdc; num_wegld = 0 should pass
+    let num_wegld = 0;
+    setup.swap_dust_token(&payments, &user, num_wegld, total, None, None);
+    setup.b_wrapper.check_esdt_balance(&user, WRAPPED_TOKEN, &rust_biguint!(total));
+}
+
+#[test]
+fn test_swap_dust_tokens_many_wegld_0_usdc() {
+    let mut setup = DustConvertorSetup::new(dust_converter::contract_obj, WRAPPED_TOKEN, USDC_TOKEN, pair_mock::contract_obj);
+    setup.add_known_tokens(WRAPPED_TOKEN, vec![KNOWN_TOKEN_1, KNOWN_TOKEN_2, KNOWN_TOKEN_3]);
+    setup.add_known_tokens(USDC_TOKEN, vec![KNOWN_TOKEN_4, KNOWN_TOKEN_5]);
+    setup.resume();
+
+    let user = setup.b_wrapper.create_user_account(&rust_biguint!(0u64));
+
+    let known_token_1_amount = 3000000u64;
+    let known_token_2_amount = 4000000u64;
+    let known_token_3_amount = 5000000u64;
+    setup.b_wrapper.set_esdt_balance(&user, KNOWN_TOKEN_1, &rust_biguint!(known_token_1_amount));
+    setup.b_wrapper.set_esdt_balance(&user, KNOWN_TOKEN_2, &rust_biguint!(known_token_2_amount));
+    setup.b_wrapper.set_esdt_balance(&user, KNOWN_TOKEN_3, &rust_biguint!(known_token_3_amount));
+    let payments = [
+        TxTokenTransfer {
+            token_identifier: KNOWN_TOKEN_1.to_vec(),
+            nonce: 0,
+            value: rust_biguint!(known_token_1_amount)
+        },
+        TxTokenTransfer {
+            token_identifier: KNOWN_TOKEN_2.to_vec(),
+            nonce: 0,
+            value: rust_biguint!(known_token_2_amount)
+        },
+        TxTokenTransfer {
+            token_identifier: KNOWN_TOKEN_3.to_vec(),
+            nonce: 0,
+            value: rust_biguint!(known_token_3_amount)
+        },
+    ];
+    let amount_out = compute_token_out_amount(known_token_1_amount, KNOWN_TOKEN_1) + compute_token_out_amount(known_token_2_amount, KNOWN_TOKEN_2) 
+        + compute_token_out_amount(known_token_3_amount, KNOWN_TOKEN_3);
+    let protocol_fee = amount_out * 500u64 / MAX_PERCENTAGE;
+    let total = amount_out - protocol_fee;
+
+    // 3 wegld; 0 usdc; num_wegld > 3 should fail
+    let num_wegld = 4;
+    setup.swap_dust_token(&payments, &user, num_wegld, total, Some("Invalid num_wegld"), None);
+
+    // 3 wegld; 0 usdc; num_wegld < 3 should fail
+    let num_wegld = 2;
+    setup.swap_dust_token(&payments, &user, num_wegld, total, Some("Invalid payments"), None);
+
+    // 3 wegld; 0 usdc; num_wegld = 3 should pass
+    let num_wegld = 3;
+    setup.swap_dust_token(&payments, &user, num_wegld, total, None, None);
+    setup.b_wrapper.check_esdt_balance(&user, WRAPPED_TOKEN, &rust_biguint!(total));
+}
+
+#[test]
+fn test_swap_dust_tokens_0_wegld_many_usdc() {
+    let mut setup = DustConvertorSetup::new(dust_converter::contract_obj, WRAPPED_TOKEN, USDC_TOKEN, pair_mock::contract_obj);
+    setup.add_known_tokens(WRAPPED_TOKEN, vec![KNOWN_TOKEN_1, KNOWN_TOKEN_2]);
+    setup.add_known_tokens(USDC_TOKEN, vec![KNOWN_TOKEN_3, KNOWN_TOKEN_4, KNOWN_TOKEN_5]);
+    setup.resume();
+
+    let user = setup.b_wrapper.create_user_account(&rust_biguint!(0u64));
+
+
+    let known_token_3_amount = 2640000u64;
+    let known_token_4_amount = 3912000u64;
+    let known_token_5_amount = 6000000u64;
+    setup.b_wrapper.set_esdt_balance(&user, KNOWN_TOKEN_3, &rust_biguint!(known_token_3_amount));
+    setup.b_wrapper.set_esdt_balance(&user, KNOWN_TOKEN_4, &rust_biguint!(known_token_4_amount));
+    setup.b_wrapper.set_esdt_balance(&user, KNOWN_TOKEN_5, &rust_biguint!(known_token_5_amount));
+    let payments = [
+        TxTokenTransfer {
+            token_identifier: KNOWN_TOKEN_3.to_vec(),
+            nonce: 0,
+            value: rust_biguint!(known_token_3_amount)
+        },
+        TxTokenTransfer {
+            token_identifier: KNOWN_TOKEN_4.to_vec(),
+            nonce: 0,
+            value: rust_biguint!(known_token_4_amount)
+        },
+        TxTokenTransfer {
+            token_identifier: KNOWN_TOKEN_5.to_vec(),
+            nonce: 0,
+            value: rust_biguint!(known_token_5_amount)
+        },
+    ];
+    let usdc_amount_out = compute_token_out_amount(known_token_3_amount, KNOWN_TOKEN_3) + compute_token_out_amount(known_token_4_amount, KNOWN_TOKEN_4) 
+        + compute_token_out_amount(known_token_5_amount, KNOWN_TOKEN_5);
+    let amount_out = compute_token_out_amount(usdc_amount_out, USDC_TOKEN);
+    let protocol_fee = amount_out * 500u64 / MAX_PERCENTAGE;
+    let total = amount_out - protocol_fee;
+
+    // 0 wegld; 3 usdc; num_wegld > 0 should fail
+    let num_wegld = 1;
+    setup.swap_dust_token(&payments, &user, num_wegld, total, Some("Invalid payments"), None);
+
+    // 0 wegld; 3 usdc; num_wegld = 0 should pass
+    let num_wegld = 0;
+    setup.swap_dust_token(&payments, &user, num_wegld, total, None, None);
+
+    setup.b_wrapper.check_esdt_balance(&user, WRAPPED_TOKEN, &rust_biguint!(total));
+}
+
+#[test]
+fn test_swap_dust_tokens_many_wegld_many_usdc() {
+    let mut setup = DustConvertorSetup::new(dust_converter::contract_obj, WRAPPED_TOKEN, USDC_TOKEN, pair_mock::contract_obj);
+    setup.add_known_tokens(WRAPPED_TOKEN, vec![KNOWN_TOKEN_1, KNOWN_TOKEN_2]);
+    setup.add_known_tokens(USDC_TOKEN, vec![KNOWN_TOKEN_3, KNOWN_TOKEN_4, KNOWN_TOKEN_5]);
+    setup.resume();
+
+    let user = setup.b_wrapper.create_user_account(&rust_biguint!(0u64));
+
+    let known_token_1_amount = 3000000u64;
+    let known_token_2_amount = 4000000u64;
+    let known_token_3_amount = 2640000u64;
+    let known_token_4_amount = 3912000u64;
+    let known_token_5_amount = 6000000u64;
+    setup.b_wrapper.set_esdt_balance(&user, KNOWN_TOKEN_1, &rust_biguint!(known_token_1_amount));
+    setup.b_wrapper.set_esdt_balance(&user, KNOWN_TOKEN_2, &rust_biguint!(known_token_2_amount));
+    setup.b_wrapper.set_esdt_balance(&user, KNOWN_TOKEN_3, &rust_biguint!(known_token_3_amount));
+    setup.b_wrapper.set_esdt_balance(&user, KNOWN_TOKEN_4, &rust_biguint!(known_token_4_amount));
+    setup.b_wrapper.set_esdt_balance(&user, KNOWN_TOKEN_5, &rust_biguint!(known_token_5_amount));
+    let payments = [
+        TxTokenTransfer {
+            token_identifier: KNOWN_TOKEN_1.to_vec(),
+            nonce: 0,
+            value: rust_biguint!(known_token_1_amount)
+        },
+        TxTokenTransfer {
+            token_identifier: KNOWN_TOKEN_2.to_vec(),
+            nonce: 0,
+            value: rust_biguint!(known_token_2_amount)
+        },
+        TxTokenTransfer {
+            token_identifier: KNOWN_TOKEN_3.to_vec(),
+            nonce: 0,
+            value: rust_biguint!(known_token_3_amount)
+        },
+        TxTokenTransfer {
+            token_identifier: KNOWN_TOKEN_4.to_vec(),
+            nonce: 0,
+            value: rust_biguint!(known_token_4_amount)
+        },
+        TxTokenTransfer {
+            token_identifier: KNOWN_TOKEN_5.to_vec(),
+            nonce: 0,
+            value: rust_biguint!(known_token_5_amount)
+        },
+    ];
+    let usdc_amount_out = compute_token_out_amount(known_token_3_amount, KNOWN_TOKEN_3) + compute_token_out_amount(known_token_4_amount, KNOWN_TOKEN_4) 
+        + compute_token_out_amount(known_token_5_amount, KNOWN_TOKEN_5);
+    let amount_out = compute_token_out_amount(usdc_amount_out, USDC_TOKEN) + compute_token_out_amount(known_token_1_amount, KNOWN_TOKEN_1) 
+        + compute_token_out_amount(known_token_2_amount, KNOWN_TOKEN_2);
+    let protocol_fee = amount_out * 500u64 / MAX_PERCENTAGE;
+    let total = amount_out - protocol_fee;
+
+    // 2 wegld; 3 usdc; num_wegld > 5 should fail
+    let num_wegld = 6;
+    setup.swap_dust_token(&payments, &user, num_wegld, total, Some("Invalid num_wegld"), None);
+
+    // 2 wegld; 3 usdc; num_wegld < 5 && num_wegld > 2 should fail
+    let num_wegld = 3;
+    setup.swap_dust_token(&payments, &user, num_wegld, total, Some("Invalid payments"), None);
+
+    // 2 wegld; 3 usdc; num_wegld < 2 should fail
+    let num_wegld = 1;
+    setup.swap_dust_token(&payments, &user, num_wegld, total, Some("Invalid payments"), None);
+
+    // 2 wegld; 3 usdc; num_wegld = 2 should pass
+    let num_wegld = 2;
+    setup.swap_dust_token(&payments, &user, num_wegld, total, None, None);
+
+    setup.b_wrapper.check_esdt_balance(&user, WRAPPED_TOKEN, &rust_biguint!(total));
+}

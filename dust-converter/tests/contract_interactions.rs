@@ -142,6 +142,19 @@ where
             .assert_ok();
     }
 
+    pub fn remove_known_tokens(&mut self, output_token: &[u8], known_tokens: Vec<&[u8]>) {
+        self.b_wrapper
+            .execute_tx(&self.owner, &self.c_wrapper, &rust_biguint!(0u64), |sc| {
+                let mut payload_tokens = MultiValueEncoded::new();
+                for t in known_tokens {
+                    payload_tokens.push(managed_token_id!(t));
+
+                }
+                sc.remove_known_tokens(managed_token_id!(output_token), payload_tokens);
+            })
+            .assert_ok();
+    }
+
     pub fn swap_dust_token(
         &mut self,
         payments: &[TxTokenTransfer],
@@ -307,6 +320,21 @@ where
             .execute_query(&self.c_wrapper, |sc| {
                 let amount = sc.collected_tag_fees(&managed_buffer!(tag)).get();
                 assert_eq!(amount, managed_biguint!(expected_amount));
+            })
+            .assert_ok();
+    }
+
+    pub fn check_all_tokens(&mut self, output_token: &[u8], expected_tokens: Vec<&[u8]>) {
+        self.b_wrapper
+            .execute_query(&self.c_wrapper, |sc| {
+                let multi = sc.get_all_tokens(managed_token_id!(output_token));
+
+                let mut expected_multi = MultiValueEncoded::new();
+                for token in expected_tokens {
+                    expected_multi.push(managed_token_id!(token));
+                }
+
+                assert_eq!(multi, expected_multi);
             })
             .assert_ok();
     }

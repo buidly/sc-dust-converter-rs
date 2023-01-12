@@ -57,8 +57,8 @@ resume() {
 # . ./interaction.snippets.sh && addKnownTokens WEGLD-d7c6bb MEX-dc289c erd1qqqqqqqqqqqqqpgquu5rsa4ee6l4azz6vdu4hjp8z4p6tt8m0n4suht3dy 0x016345785d8a0000
 # . ./interaction.snippets.sh && addKnownTokens WEGLD-d7c6bb DTK-5935ad erd1qqqqqqqqqqqqqpgq3lwucu7dx286sa9zps7ygpwknwmpav8c0n4sjulxqa 0x016345785d8a0000
 # . ./interaction.snippets.sh && addKnownTokens WEGLD-d7c6bb RIDE-6e4c49 erd1qqqqqqqqqqqqqpgqe8m9w7cv2ekdc28q5ahku9x3hcregqpn0n4sum0e3u 0x016345785d8a0000
-# . ./interaction.snippets.sh && addKnownTokens USDC-8d4068 ABC-667e0a erd1qqqqqqqqqqqqqpgqpu8nxqtqvggeagh0z4j2tt3ss72y6a7lw8hq7vfqej 0x016345785d8a0000
-# . ./interaction.snippets.sh && addKnownTokens USDC-8d4068 ETHX-ea59cc erd1qqqqqqqqqqqqqpgqxnj6w8t2hp36d4aj2d4fjrxg4eax9r4pw8hqz09jk0 0x016345785d8a0000
+# . ./interaction.snippets.sh && addKnownTokens USDC-8d4068 ABC-667e0a erd1qqqqqqqqqqqqqpgqyh76uvply5j9pwczjfcpfqeg4973l3xsmtvsh94f02 0x016345785d8a0000
+# . ./interaction.snippets.sh && addKnownTokens USDC-8d4068 ETHX-ea59cc erd1qqqqqqqqqqqqqpgqhxjgc7m8uy2umz2jutxaev6swf8j5kunmtvs3fq38j 0x016345785d8a0000
 addKnownTokens() {
     output_token_id=$1
     token_id=$2
@@ -72,8 +72,8 @@ addKnownTokens() {
         --send || return
 }
 
-# . ./interaction.snippets.sh && removeKnownTokens RIDE-6e4c49
-removeKnownTokens() {
+# . ./interaction.snippets.sh && removeKnownTokens USDC-8d4068 ABC-667e0a ETHX-ea59cc
+removeKnownTokens() { 
     token_id="0x$(echo -n $1 | xxd -p -u | tr -d '\n')"
 
     erdpy --verbose contract call ${DUST_CONVERTER_ADDRESS} --recall-nonce \
@@ -81,7 +81,7 @@ removeKnownTokens() {
         --proxy=${PROXY} --chain=${CHAIN_ID} \
         --gas-limit=10000000 \
         --function=removeKnownTokens \
-        --arguments $token_id \
+        --arguments $token_id str:$2 str:$3 \
         --send || return
 }
 

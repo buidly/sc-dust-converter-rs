@@ -487,3 +487,17 @@ fn test_tier_with_0_fee() {
     setup.update_tier(&user_1, None);
     setup.check_referral_fee_percentage(TIER_1_FEE_PERCENT, tag.as_bytes());
 }
+
+#[test]
+fn test_remove_known_tokens() {
+    let mut setup = DustConvertorSetup::new(dust_converter::contract_obj, WRAPPED_TOKEN, USDC_TOKEN, pair_mock::contract_obj);
+    setup.add_known_tokens(WRAPPED_TOKEN, vec![KNOWN_TOKEN_1, KNOWN_TOKEN_2, KNOWN_TOKEN_3]);
+    setup.add_known_tokens(USDC_TOKEN, vec![KNOWN_TOKEN_4, KNOWN_TOKEN_5]);
+    setup.resume();
+
+    setup.remove_known_tokens(WRAPPED_TOKEN, vec![KNOWN_TOKEN_1, KNOWN_TOKEN_2]);
+    setup.check_all_tokens(WRAPPED_TOKEN, vec![KNOWN_TOKEN_3]);
+
+    setup.remove_known_tokens(USDC_TOKEN, vec![KNOWN_TOKEN_4, KNOWN_TOKEN_5]);
+    setup.check_all_tokens(USDC_TOKEN, vec![]);
+}

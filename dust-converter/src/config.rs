@@ -138,6 +138,7 @@ pub trait ConfigModule:
     #[storage_mapper("usdc_token_id")]
     fn usdc_token(&self) -> SingleValueMapper<TokenIdentifier>;
 
+    #[view(getProtocolCollectedFeeAmount)]
     #[storage_mapper("collected_fee_amount")]
     fn collected_fee_amount(&self) -> SingleValueMapper<BigUint>;
 }

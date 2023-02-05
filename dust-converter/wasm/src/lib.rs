@@ -5,9 +5,9 @@
 ////////////////////////////////////////////////////
 
 // Init:                                 1
-// Endpoints:                           35
+// Endpoints:                           36
 // Async Callback (empty):               1
-// Total number of exported functions:  37
+// Total number of exported functions:  38
 
 #![no_std]
 
@@ -28,6 +28,7 @@ elrond_wasm_node::wasm_endpoints! {
         getSlippagePercent
         getWrappedTokenId
         getUsdcTokenId
+        getProtocolCollectedFeeAmount
         registerReferralTag
         claimReferralFees
         updateTier

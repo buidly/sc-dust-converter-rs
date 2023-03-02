@@ -165,15 +165,33 @@ pub trait DustConverter:
 
             let pair = self.pair_contract(&token).get();
             let balance = self.blockchain().get_sc_balance(&EgldOrEsdtTokenIdentifier::esdt(token.clone()), 0);
-            if balance == BigUint::zero() {
+            let mut difference = balance.clone() - self.token_buffer(&token).get();
+            if difference == BigUint::zero() { // balance - buffer(token) == BigUint::zero()
                 continue;
             }
+            let mut debt = self.token_debt(&token).get();
+            if debt > 0 {
+                if debt >= difference {
+                    debt -= difference;
 
+                    let value = self.get_amount_in(pair.clone().address, token.clone(), debt.clone());
+                    let threshold = self.token_threshold(&token).get();
+                    if value > threshold {
+                        let amount_in_max = self.get_amount_in_max(&value);
+                        self.swap_tokens_fixed_output(pair.address, wrapped_egld.clone(), amount_in_max, token.clone(), debt); 
+                    }
+                    self.token_debt(&token).clear();
+                    continue;
+                } else {
+                    difference -= debt;
+                    self.token_debt(&token).clear();
+                }
+            }
             let value = self.get_amount_out(pair.clone().address, token.clone(), balance.clone());
             let threshold = self.token_threshold(&token).get();
             if value > threshold {
                 let amount_out_min = self.get_amount_out_min(&value);
-                self.swap_tokens_fixed_input(pair.address, token, balance, wrapped_egld.clone(), amount_out_min);
+                self.swap_tokens_fixed_input(pair.address, token, balance, wrapped_egld.clone(), amount_out_min); // balance - buffer(token)
             }
         }
     }
@@ -184,12 +202,21 @@ pub trait DustConverter:
     }
 
     #[inline]
-    fn get_amount_out_min(&self, amount_in: &BigUint) -> BigUint {
+    fn get_amount_out_min(&self, amount_out: &BigUint) -> BigUint {
+        require!(!self.slippage_percent().is_empty(), "Slippage not set");
+        let slippage = self.slippage_percent().get();
+        let slippage_amount = amount_out * slippage / MAX_PERCENTAGE;
+
+        amount_out.sub(&slippage_amount)
+    }
+
+    #[inline]
+    fn get_amount_in_max(&self, amount_in: &BigUint) -> BigUint {
         require!(!self.slippage_percent().is_empty(), "Slippage not set");
         let slippage = self.slippage_percent().get();
         let slippage_amount = amount_in * slippage / MAX_PERCENTAGE;
 
-        amount_in.sub(&slippage_amount)
+        amount_in.add(&slippage_amount)
     }
 
 }

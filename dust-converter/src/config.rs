@@ -122,6 +122,12 @@ pub trait ConfigModule:
     #[storage_mapper("all_tokens")]
     fn all_tokens(&self, output_token: &TokenIdentifier) -> SingleValueMapper<ManagedVec<TokenIdentifier>>;
 
+    #[storage_mapper("token_buffer")]
+    fn token_buffer(&self, token: &TokenIdentifier) -> SingleValueMapper<BigUint>;
+
+    #[storage_mapper("token_debt")]
+    fn token_debt(&self, token: &TokenIdentifier) -> SingleValueMapper<BigUint>;
+
     #[view(getProtocolFeePercent)]
     #[storage_mapper("protocol_fee_percent")]
     fn protocol_fee_percent(&self) -> SingleValueMapper<u64>;

@@ -116,7 +116,7 @@ pub trait DustConverter:
     /// tag - The tag of the referral
     #[payable("*")]
     #[endpoint(swapDustTokens)]
-    fn swap_dust_tokens(&self, num_wegld: usize, amount_out_min: BigUint, tag: OptionalValue<ManagedBuffer>) {
+    fn swap_dust_tokens(&self, num_wegld: usize, amount_out_min: BigUint, tag: Option<ManagedBuffer>, token_wanted: OptionalValue<TokenIdentifier>) {
         self.require_state_active();
 
         let payments = self.call_value().all_esdt_transfers();
@@ -136,7 +136,7 @@ pub trait DustConverter:
         let amount_after_fees = &total_amount - &fee_amount;
         require!(amount_after_fees >= amount_out_min, "Slippage exceeded");
 
-        if let Some(tag_name) = tag.into_option() {
+        if let Some(tag_name) = tag {
             self.accumulated_volume(&tag_name).update(|x| *x += total_amount);
             fee_amount = self.subtract_referral_fee_and_update_collected_fees(fee_amount, tag_name);
         }
@@ -144,7 +144,15 @@ pub trait DustConverter:
         let caller = self.blockchain().get_caller();
         require!(amount_after_fees > 0, "Zero amount cannot be claimed");
         
-        self.send().direct_esdt(&caller, &wrapped_egld, 0, &amount_after_fees);
+        if let Some(token_wanted) = token_wanted.into_option() {
+            let token_buffer = self.token_buffer(&token_wanted).get();
+            let pair = self.pair_contract(&token_wanted).get();
+            let value = self.get_amount_out(pair.clone().address, wrapped_egld.clone(), amount_after_fees.clone());
+            require!(value < token_buffer, "Not enough token reserve");
+            self.send().direct_esdt(&caller, &token_wanted, 0, &value);
+        } else {
+            self.send().direct_esdt(&caller, &wrapped_egld, 0, &amount_after_fees);
+        }
 
         wegld_refund.extend(&usdc_refund);
         if !wegld_refund.is_empty() {
